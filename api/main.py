@@ -5,10 +5,11 @@ from datetime import date as _date, timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi import FastAPI, Form, HTTPException, Query
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from api import auth
 from cafe24_ops import config, report_docx
 from cafe24_ops.alerts import digest
 from cafe24_ops.collectors import channel_status
@@ -19,8 +20,30 @@ from cafe24_ops.store import Store
 ROOT = Path(__file__).resolve().parent.parent
 DASH = ROOT / "dashboard"
 
-app = FastAPI(title="cafe24-ops-status", version="0.2.0")
+app = FastAPI(title="cafe24-ops-status", version="0.3.0")
+app.add_middleware(auth.PasswordMiddleware)  # DASHBOARD_PASSWORD 설정 시 로그인 요구
 _store: Store | None = None
+
+
+@app.get("/login")
+def login_get(next: str = "/") -> Response:
+    if not auth._password():
+        return RedirectResponse("/", status_code=302)
+    return auth.login_page(next)
+
+
+@app.post("/login")
+def login_post(password: str = Form(""), next: str = Form("/")) -> Response:
+    if not auth.check_password(password):
+        return auth.login_page(next, "비밀번호가 맞지 않습니다")
+    return auth.set_cookie(RedirectResponse(next if next.startswith("/") else "/", status_code=303))
+
+
+@app.get("/logout")
+def logout() -> Response:
+    r = RedirectResponse("/login", status_code=302)
+    r.delete_cookie(auth.COOKIE)
+    return r
 
 
 def store() -> Store:

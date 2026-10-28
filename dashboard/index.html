@@ -152,11 +152,19 @@
   .last, .doc { font-size: 12px; color: var(--text-3); }
   code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
   footer { text-align: center; color: var(--text-3); font-size: 11px; margin-top: 24px; }
+  /* 비밀번호 게이트 (암호화 스냅샷) */
+  #gate { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--navy); }
+  #gate form { background: var(--card); color: var(--text); border-radius: 14px; padding: 28px 28px 22px; width: min(92vw, 360px); box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+  #gate h2 { margin: 0 0 4px; font-size: 18px; } #gate p { margin: 0 0 16px; color: var(--text-3); font-size: 13px; }
+  #gate input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--card); color: var(--text); }
+  #gate button { width: 100%; font: inherit; font-weight: 700; padding: 10px; border: 0; border-radius: 8px; background: var(--s1); color: #fff; cursor: pointer; }
+  #gate .err { color: var(--bad); font-size: 13px; min-height: 18px; margin: 0 0 8px; }
   .hidden { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
+<div id="gate" class="hidden"><form id="gateForm"><h2 id="gateTitle">운영 대시보드</h2><p>비밀번호를 입력하세요</p><p class="err" id="gateErr"></p><input type="password" id="gatePw" placeholder="비밀번호" autocomplete="current-password" autofocus><button type="submit">들어가기</button></form></div>
 <main>
   <div class="hero">
     <h1 id="brand">운영 대시보드</h1>
@@ -307,7 +315,26 @@ function showErr(msg) { const e = $('#error'); e.textContent = msg; e.classList.
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // 정적 스냅샷 모드 (scripts/export_static.py 가 window.__SNAPSHOT__ 을 주입) — 서버 없이 링크로 열람
-const SNAP = window.__SNAPSHOT__ || null;
+let SNAP = window.__SNAPSHOT__ || null;
+const ENC = window.__SNAPSHOT_ENC__ || null;
+async function decryptSnapshot(password) {  // PBKDF2-SHA256(200k) → AES-256-GCM (export_static.py 와 동일)
+  const raw = Uint8Array.from(atob(ENC), c => c.charCodeAt(0));
+  const salt = raw.slice(0, 16), iv = raw.slice(16, 28), ct = raw.slice(28);
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+function askPassword() {
+  return new Promise(resolve => {
+    const gate = $('#gate'); gate.classList.remove('hidden'); $('main').classList.add('hidden'); $('#gateTitle').textContent = document.title;
+    try { const saved = sessionStorage.getItem('ops_pw'); if (saved) decryptSnapshot(saved).then(s => { gate.classList.add('hidden'); $('main').classList.remove('hidden'); resolve(s); }).catch(() => {}); } catch (e) {}
+    $('#gateForm').onsubmit = async (ev) => { ev.preventDefault(); const pw = $('#gatePw').value;
+      try { const s = await decryptSnapshot(pw); try { sessionStorage.setItem('ops_pw', pw); } catch (e) {} gate.classList.add('hidden'); $('main').classList.remove('hidden'); resolve(s); }
+      catch (e) { $('#gateErr').textContent = '비밀번호가 맞지 않습니다'; $('#gatePw').select(); } };
+    setTimeout(() => $('#gatePw').focus(), 50);
+  });
+}
 async function api(path) {
   if (SNAP) return snapGet(path);
   const r = await fetch(path); const j = await r.json();
@@ -624,6 +651,7 @@ async function loadAll() {
 
 (async function init() {
   try {
+    if (ENC && !SNAP) SNAP = await askPassword();
     CFG = await api('/api/config'); const dates = await api('/api/dates');
     $('#brand').textContent = `${CFG.brand} 운영 대시보드`; document.title = `${CFG.brand} 운영 대시보드`; $('#siteUrl').textContent = CFG.site_url || '';
     const mb = $('#modeBadge'); mb.textContent = CFG.mode === 'demo' ? '데모 데이터' : 'LIVE'; mb.classList.add(CFG.mode === 'demo' ? 'demo' : 'live');

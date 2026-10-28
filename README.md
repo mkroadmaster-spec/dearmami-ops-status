@@ -36,6 +36,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 | `docs/` | 원본 가이드 7종 + `SETUP-GUIDE.md`(순차 가이드) |
 | `.claude/skills/` | 카페24-운영현황 · 온라인-광고 · sns-auto-operation 스킬 |
 
+## 비밀번호 보호
+`DASHBOARD_PASSWORD` 를 설정하면 서버는 `/login` 로그인(30일 쿠키), 정적 내보내기(`export_static.py`)는 스냅샷을 AES-GCM 으로 암호화해 비밀번호 없이는 열 수 없다. 비밀번호는 `secrets.env`/Render env/GitHub Secrets 에만 두고 코드에 넣지 않는다.
+
 ## 자주 쓰는 명령
 ```bash
 .venv/bin/python scripts/run_all.py --mode demo --days 30          # 데모

@@ -51,7 +51,8 @@ def _cmp_range(f: _date, t: _date, mode: str) -> tuple[_date, _date]:
 
 
 def build_snapshot() -> dict:
-    c = TestClient(app)
+    from cafe24_ops import config
+    c = TestClient(app, headers={"X-Dashboard-Password": config.env("DASHBOARD_PASSWORD")})  # 서버 보호 통과
 
     def get(p: str):
         r = c.get(p)
@@ -85,11 +86,26 @@ def build_snapshot() -> dict:
     return snap
 
 
-def render(snap: dict, artifact: bool) -> str:
+def encrypt(plain: str, password: str) -> str:
+    """PBKDF2-SHA256(200k) → AES-256-GCM. base64(salt16 + iv12 + ciphertext). 브라우저 Web Crypto 로 복호화."""
+    import base64
+    import hashlib
+    import os
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    salt, iv = os.urandom(16), os.urandom(12)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 200_000, dklen=32)
+    ct = AESGCM(key).encrypt(iv, plain.encode("utf-8"), None)
+    return base64.b64encode(salt + iv + ct).decode()
+
+
+def render(snap: dict, artifact: bool, password: str = "") -> str:
     html = (ROOT / "dashboard" / "index.html").read_text(encoding="utf-8")
     chart = (ROOT / "dashboard" / "vendor" / "chart.umd.js").read_text(encoding="utf-8")
     data = json.dumps(snap, ensure_ascii=False).replace("</", "<\\/")
-    inject = f"<script>\n{chart}\n</script>\n<script>window.__SNAPSHOT__ = {data};</script>"
+    if password:
+        inject = f"<script>\n{chart}\n</script>\n<script>window.__SNAPSHOT_ENC__ = \"{encrypt(data, password)}\";</script>"
+    else:
+        inject = f"<script>\n{chart}\n</script>\n<script>window.__SNAPSHOT__ = {data};</script>"
     html = html.replace('<script src="/static/vendor/chart.umd.js"></script>', inject, 1)
     brand = snap["config"].get("brand") or ""
     if brand:  # 게시/갤러리 제목에 업체명
@@ -106,12 +122,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--artifact", action="store_true")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--password", default=None, help="스냅샷 암호화 비밀번호 (기본: 환경변수 DASHBOARD_PASSWORD, 비우면 암호화 없음)")
     a = ap.parse_args()
+    from cafe24_ops import config
+    password = a.password if a.password is not None else config.env("DASHBOARD_PASSWORD")
     snap = build_snapshot()
     out = Path(a.out) if a.out else ROOT / "dist" / ("dashboard-static.html" if a.artifact else "index.html")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(snap, a.artifact), encoding="utf-8")
-    print(f"✓ {out} ({out.stat().st_size // 1024} KB) · 기준일 {snap['dates']['max']} · 모드 {snap['config']['mode']}")
+    out.write_text(render(snap, a.artifact, password), encoding="utf-8")
+    print(f"✓ {out} ({out.stat().st_size // 1024} KB) · 기준일 {snap['dates']['max']} · 모드 {snap['config']['mode']} · {'🔒 비밀번호 암호화' if password else '암호화 없음'}")
     return 0
 
 

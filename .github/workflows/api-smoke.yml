@@ -15,10 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE: ${{ github.event.inputs.base_url || vars.DASHBOARD_URL }}
+      PW: ${{ secrets.DASHBOARD_PASSWORD }}
     steps:
       - run: |
           [ -z "$BASE" ] && { echo "base_url 입력 또는 Variables DASHBOARD_URL 설정"; exit 0; }
           for p in /health /api/config /api/dates /api/channels /api/summary /api/daily /api/digest /api/breakdown /api/ads/channels /api/competitors/trend; do
-            code=$(curl -s -o /tmp/out -w "%{http_code}" --max-time 90 "$BASE$p"); echo "$code $p"; [ "$code" = "200" ] || { cat /tmp/out; exit 1; }
+            code=$(curl -s -o /tmp/out -w "%{http_code}" --max-time 90 -H "X-Dashboard-Password: $PW" "$BASE$p"); echo "$code $p"; [ "$code" = "200" ] || { cat /tmp/out; exit 1; }
           done
           echo "--- /health"; cat /tmp/out | head -c 400 || true
