@@ -158,13 +158,13 @@
   #gate h2 { margin: 0 0 4px; font-size: 18px; } #gate p { margin: 0 0 16px; color: var(--text-3); font-size: 13px; }
   #gate input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--card); color: var(--text); }
   #gate button { width: 100%; font: inherit; font-weight: 700; padding: 10px; border: 0; border-radius: 8px; background: var(--s1); color: #fff; cursor: pointer; }
-  #gate .err { color: var(--bad); font-size: 13px; min-height: 18px; margin: 0 0 8px; }
+  #gate .gerr { color: var(--bad); font-size: 13px; min-height: 18px; margin: 0 0 8px; }
   .hidden { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div id="gate" class="hidden"><form id="gateForm"><h2 id="gateTitle">운영 대시보드</h2><p>비밀번호를 입력하세요</p><p class="err" id="gateErr"></p><input type="password" id="gatePw" placeholder="비밀번호" autocomplete="current-password" autofocus><button type="submit">들어가기</button></form></div>
+<div id="gate" class="hidden"><form id="gateForm"><h2 id="gateTitle">운영 대시보드</h2><p>비밀번호를 입력하세요</p><p class="gerr" id="gateErr"></p><input type="password" id="gatePw" placeholder="비밀번호" autocomplete="current-password" autofocus><button type="submit">들어가기</button></form></div>
 <main>
   <div class="hero">
     <h1 id="brand">운영 대시보드</h1>
