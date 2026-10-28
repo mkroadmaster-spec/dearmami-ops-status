@@ -1,0 +1,41 @@
+# 대시보드 요약 카드/표 정의 (코드 수정 없이 카드 구성 변경)
+summary_cards:
+  - key: gross_sales
+    label: 매출
+    unit: krw
+  - key: orders
+    label: 주문수
+    unit: count
+  - key: aov
+    label: 객단가
+    unit: krw
+  - key: visitors
+    label: 방문자
+    unit: count
+    source_note: "GA4 (카페24 Admin API에는 방문자 없음)"
+  - key: conversion_rate
+    label: 구매전환율
+    unit: pct
+  - key: ad_cost
+    label: 광고비
+    unit: krw
+  - key: roas
+    label: ROAS
+    unit: pct
+
+# 방문자 정의 차이 안내 (카페24 방문 vs GA4 사용자 — 숫자가 다른 게 정상)
+visitor_sources:
+  primary: ga4
+  secondary: cafe24_analytics
+
+# 카테고리 그룹 — 업체 카페24 카테고리명으로 교체 (디어마미: 중년 여성 의류 ← TODO 실제 카테고리명 확인 후 수정)
+# 키 = 대시보드 표시 그룹, 값 = 카페24 full_category_name 최심 depth 에 등장하는 이름들
+# 데모 모드는 이 목록으로 상품/카테고리 데이터를 생성한다.
+category_groups:
+  원피스: ["원피스", "롱원피스", "투피스"]
+  블라우스/셔츠: ["블라우스", "셔츠", "티셔츠"]
+  니트/가디건: ["니트", "가디건", "조끼"]
+  팬츠: ["팬츠", "슬랙스", "데님"]
+  스커트: ["스커트"]
+  아우터: ["자켓", "코트", "점퍼"]
+  기타: []

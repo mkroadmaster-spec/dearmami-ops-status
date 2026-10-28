@@ -1,0 +1,24 @@
+name: api smoke (deployed dashboard)
+
+# 배포된 대시보드의 전 엔드포인트 200 확인 (Render 슬립 깨우기 겸). 도메인은 입력값.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "예: https://<서비스명>.onrender.com"
+        required: true
+  schedule:
+    - cron: "*/10 * * * *"   # keepalive (Render 무료 15분 슬립 방지 — 지연될 수 있음)
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      BASE: ${{ github.event.inputs.base_url || vars.DASHBOARD_URL }}
+    steps:
+      - run: |
+          [ -z "$BASE" ] && { echo "base_url 입력 또는 Variables DASHBOARD_URL 설정"; exit 0; }
+          for p in /health /api/config /api/dates /api/channels /api/summary /api/daily /api/digest /api/breakdown /api/ads/channels /api/competitors/trend; do
+            code=$(curl -s -o /tmp/out -w "%{http_code}" --max-time 90 "$BASE$p"); echo "$code $p"; [ "$code" = "200" ] || { cat /tmp/out; exit 1; }
+          done
+          echo "--- /health"; cat /tmp/out | head -c 400 || true

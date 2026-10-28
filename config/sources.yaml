@@ -1,0 +1,25 @@
+# 업체별로 바꾸는 값 — scripts/new_client.py 가 이 파일을 다시 쓴다 (docs/NEW-CLIENT-CHECKLIST.md §2)
+client_id: dearmami
+brand: "디어마미"
+site_url: https://dearmami.co.kr
+timezone: Asia/Seoul
+
+shop:
+  platform: cafe24            # cafe24 | none (자사몰 없으면 none → 카페24 수집기 자동 스킵)
+  mall_id: ""            # 카페24 몰 아이디 (https://<여기>.cafe24.com). 비우면 환경변수 CAFE24_MALL_ID
+  api_version: "2025-06-01"
+
+ads:                          # 자격증명 없는 채널은 자동 스킵
+  - channel: meta
+    account_id: ""
+  - channel: naver_sa
+    customer_id: ""
+  - channel: kakao
+    account_id: ""
+  - channel: google
+    customer_id: ""
+
+competitors:                  # 네이버 데이터랩 트렌드 추적 브랜드명 (최대 5개)
+  - "디어마미"
+  - "경쟁사A"
+  - "경쟁사B"

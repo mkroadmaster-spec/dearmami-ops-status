@@ -1,0 +1,25 @@
+name: cafe24 token reset
+
+# 키 재발급 후 DB 의 옛 토큰 비우기 (DB 토큰이 Secret 보다 우선 사용되므로 필수).
+on:
+  workflow_dispatch:
+    inputs:
+      keys:
+        description: "삭제할 app_kv 키 (콤마)"
+        default: "cafe24_access_token,cafe24_refresh_token,cafe24_token_scopes,cafe24_access_expires_at,meta_access_token"
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - run: |
+          pip install -q "psycopg[binary]"
+          python3 - <<'PY'
+          import os, psycopg
+          keys = [k.strip() for k in "${{ github.event.inputs.keys }}".split(",") if k.strip()]
+          with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as c:
+              for k in keys:
+                  c.execute("DELETE FROM app_kv WHERE key=%s", (k,)); print("deleted", k)
+          PY

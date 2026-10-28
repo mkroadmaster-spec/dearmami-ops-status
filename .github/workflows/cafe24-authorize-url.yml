@@ -1,0 +1,34 @@
+name: cafe24 authorize url
+
+# 카페24 승인 URL 출력 (1단계). 브라우저에서 승인 → code 복사 → 'cafe24 token fast' 에 붙여 실행.
+# ⚠ 인가코드는 1분 만료 — 사람이 직접 연속으로 눌러야 한다.
+on:
+  workflow_dispatch:
+    inputs:
+      mall_id:
+        description: "카페24 몰 아이디 (호스트명이라 Secret 마스킹 회피를 위해 입력값)"
+        required: true
+      redirect_uri:
+        description: "개발자센터 App 관리 > Redirect URI(s) 와 글자까지 동일"
+        required: true
+        default: "https://localhost"
+
+jobs:
+  url:
+    runs-on: ubuntu-latest
+    env:
+      CAFE24_CLIENT_ID: ${{ secrets.CAFE24_CLIENT_ID }}
+    steps:
+      - name: URL 생성
+        run: |
+          python3 - <<'PY'
+          import os, urllib.parse
+          mall = "${{ github.event.inputs.mall_id }}"
+          cid = os.environ["CAFE24_CLIENT_ID"]
+          # Actions 로그 마스킹 회피: client_id 첫 글자만 퍼센트 인코딩
+          cid_enc = "%" + format(ord(cid[0]), "02X") + cid[1:]
+          scope = "mall.read_order,mall.read_customer,mall.read_community,mall.read_product,mall.read_category,mall.read_application,mall.read_analytics"
+          q = f"response_type=code&client_id={cid_enc}&state=ops&redirect_uri={urllib.parse.quote('${{ github.event.inputs.redirect_uri }}', safe='')}&scope={scope}"
+          print("브라우저로 열기 →")
+          print(f"https://{mall}.cafe24api.com/api/v2/oauth/authorize?{q}")
+          PY

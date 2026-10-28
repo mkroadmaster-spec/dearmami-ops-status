@@ -1,0 +1,35 @@
+# Render Blueprint — New → Blueprint → 이 저장소 → Deploy. (docs/DEPLOY-FREE.md §4)
+# GitHub Actions 와 같은 DATABASE_URL 을 쓰면 수집한 실데이터가 그대로 화면에 뜬다.
+services:
+  - type: web
+    name: dearmami-ops-dashboard  # 업체별로 변경 → https://<name>.onrender.com
+    runtime: python
+    plan: free                     # 무료: 15분 무접속 시 슬립(첫 접속 30~60초)
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    buildFilter:                   # 데이터/문서 커밋마다 재빌드 방지 (무료 빌드 분 보호)
+      paths:
+        - api/**
+        - cafe24_ops/**
+        - dashboard/**
+        - config/**
+        - requirements.txt
+        - render.yaml
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: CAFE24_OPS_MODE
+        value: live
+      - key: DATABASE_URL
+        sync: false                # 배포 시 입력 (Neon 연결 문자열)
+      - key: CAFE24_MALL_ID
+        sync: false
+      - key: CAFE24_CLIENT_ID
+        sync: false
+      - key: CAFE24_CLIENT_SECRET
+        sync: false
+      - key: GA4_PROPERTY_ID
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false

@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운영현황 대시보드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script src="/static/vendor/chart.umd.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --surface-2: #f3f3f1; --card: #ffffff; --border: #e4e3df;
+    --text: #0b0b0b; --text-2: #52514e; --text-3: #8a8985;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6;
+    --good: #008300; --warn: #b36b00; --bad: #c22f2e; --muted-mark: #c9c8c3; --grid: #e9e8e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface: #1a1a19; --surface-2: #222221; --card: #202020; --border: #34342f;
+      --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e88;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #2f9a2f; --s7: #9085e9;
+      --good: #4ebd4e; --warn: #e0a24a; --bad: #e66767; --muted-mark: #4a4a45; --grid: #2b2b28;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1a1a19; --surface-2: #222221; --card: #202020; --border: #34342f;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e88;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #2f9a2f; --s7: #9085e9;
+    --good: #4ebd4e; --warn: #e0a24a; --bad: #e66767; --muted-mark: #4a4a45; --grid: #2b2b28;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--text);
+         font: 14px/1.5 -apple-system, "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--card); }
+  header { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; border-bottom: 1px solid var(--border);
+           padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+           background: var(--card); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-2); }
+  .badge.demo { border-color: var(--warn); color: var(--warn); }
+  .badge.live { border-color: var(--good); color: var(--good); }
+  nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+  button, select { background: transparent; border: 1px solid var(--border); color: var(--text-2); padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit; }
+  button.on, .sub button.on { background: var(--text); color: var(--surface); border-color: var(--text); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--s1); outline-offset: 1px; }
+  main { max-width: 1240px; margin: 0 auto; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .range { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .range input { font: inherit; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); }
+  .range .hint { color: var(--text-3); font-size: 12px; margin-left: auto; }
+  .brief { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .brief h2 { margin: 0 0 6px; font-size: 14px; color: var(--text-2); font-weight: 600; }
+  .brief .head { font-weight: 650; margin-bottom: 6px; }
+  .brief ul { margin: 0; padding-left: 18px; color: var(--text-2); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+  .card .lbl { color: var(--text-2); font-size: 12px; }
+  .card .val { font-size: 22px; font-weight: 650; margin: 2px 0; letter-spacing: -0.01em; }
+  .card .dlt { font-size: 12px; color: var(--text-3); }
+  .up { color: var(--good); } .down { color: var(--bad); }
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; grid-column: span 12; min-width: 0; overflow-x: auto; }
+  .panel h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+  .panel .sub { color: var(--text-3); font-size: 12px; margin-bottom: 8px; }
+  .c6 { grid-column: span 6; } .c4 { grid-column: span 4; } .c8 { grid-column: span 8; } .c3 { grid-column: span 3; }
+  @media (max-width: 860px) { .c6, .c4, .c8, .c3 { grid-column: span 12; } }
+  .chart { position: relative; height: 260px; }
+  .chart.sm { height: 180px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--text-2); font-weight: 600; } th:first-child, td:first-child { text-align: left; }
+  td.name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; margin-left: 6px; vertical-align: 1px; }
+  .tag.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  .tag.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+  .tag.good { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
+  .tag.muted { background: var(--surface-2); color: var(--text-3); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .empty { color: var(--text-3); padding: 24px 0; text-align: center; white-space: normal; }
+  .err { background: color-mix(in srgb, var(--bad) 10%, transparent); color: var(--bad); padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; white-space: pre-wrap; }
+  .note { font-size: 12px; color: var(--text-3); white-space: normal; }
+  .sub-nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  h2.sec { font-size: 15px; margin: 18px 0 8px; font-weight: 650; }
+  /* 소재 카드 */
+  .creatives { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .cr { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 0; }
+  .cr img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface-2); }
+  .cr .b { padding: 10px 12px; }
+  .cr .t { font-weight: 650; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cr .c { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; font-size: 12px; }
+  .kv span { color: var(--text-3); } .kv b { font-weight: 600; text-align: right; }
+  /* 리포트 */
+  .report .brief { margin-bottom: 12px; }
+  .rank { font-size: 11px; color: var(--text-3); }
+  /* 채널 연결 */
+  .ch { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+  .ch .card { display: flex; flex-direction: column; gap: 6px; }
+  .ch .top { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted-mark); flex: none; }
+  .dot.on { background: var(--good); } .dot.fail { background: var(--bad); } .dot.partial { background: var(--warn); }
+  .ch .step { font-size: 11px; color: var(--text-3); margin-left: auto; }
+  .ch .title { font-weight: 650; }
+  .env { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-2); }
+  .env span { display: block; } .env .ok::before { content: "✓ "; color: var(--good); } .env .no::before { content: "○ "; color: var(--text-3); }
+  .env .opt { color: var(--text-3); }
+  .last { font-size: 12px; color: var(--text-3); }
+  .doc { font-size: 12px; color: var(--text-2); }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  a.btn { display: inline-block; text-decoration: none; border: 1px solid var(--border); color: var(--text-2); padding: 6px 12px; border-radius: 8px; font-size: 13px; }
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="brand">운영현황 대시보드</h1>
+  <span class="badge" id="modeBadge">…</span>
+  <span class="badge" id="lastRun"></span>
+  <nav>
+    <button data-tab="ops" class="on">카페24 어드민</button>
+    <button data-tab="ads">광고</button>
+    <button data-tab="history">광고 히스토리</button>
+    <button data-tab="report">주간 리포트</button>
+    <button data-tab="channels">채널 연결</button>
+  </nav>
+</header>
+<main>
+  <div id="error" class="err hidden"></div>
+
+  <div class="range" id="range">
+    <button data-days="7">7일</button><button data-days="14" class="on">14일</button><button data-days="30">30일</button>
+    <input type="date" id="from" aria-label="시작일"> <span>~</span> <input type="date" id="to" aria-label="종료일">
+    <button id="apply">조회</button>
+    <span class="hint" id="rangeHint"></span>
+  </div>
+
+  <!-- ───────── 카페24 어드민 ───────── -->
+  <section id="tab-ops">
+    <div class="brief" id="brief"><h2>오늘의 브리핑</h2><div class="head">…</div><ul></ul></div>
+    <div class="cards" id="cards"></div>
+    <div class="grid">
+      <div class="panel"><h3>핵심지표 기간비교</h3><div class="sub" id="pcSub">조회 종료일 당일 vs 전일 · 전주 같은 요일 · 전년 같은 날</div><table id="tblPeriod"></table></div>
+      <div class="panel c8"><h3>일별 매출 추이</h3><div class="sub">선택 기간 · 결제 기준</div><div class="chart"><canvas id="chSales"></canvas></div></div>
+      <div class="panel c4"><h3>신규 vs 재구매 주문</h3><div class="sub">주문 건수</div><div class="legend" id="lgNR"></div><div class="chart"><canvas id="chNR"></canvas></div></div>
+      <div class="panel c4"><h3>일별 광고비</h3><div class="sub">전 채널 합계 (상세는 광고 탭)</div><div class="chart"><canvas id="chAdCost"></canvas></div></div>
+      <div class="panel c8"><h3>디바이스별 매출·주문</h3><div class="sub">모바일 / PC</div><div class="legend" id="lgDev"></div><div class="chart" style="height:60px"><canvas id="chDev"></canvas></div><table id="tblDev"></table></div>
+      <div class="panel c4"><h3>방문자 상세</h3><div class="sub">GA4 사용자 · 카페24 '방문'은 정의가 달라 숫자가 다른 게 정상</div><table id="tblVisDetail"></table></div>
+      <div class="panel c8"><h3>방문자 추이</h3><div class="sub" id="visitorSub">GA4 사용자(totalUsers) · 카페24 방문</div><div class="legend" id="lgVis"></div><div class="chart"><canvas id="chVis"></canvas></div></div>
+      <div class="panel c4"><h3>신규가입 추이</h3><div class="sub">카페24 Admin API 로 조회 불가</div><div class="empty note">신규가입수·회원가입율은 카페24 API 가 제공하지 않습니다 (<code>/customers/count</code> 404). GA4 <code>sign_up</code> 이벤트를 심으면 연동 가능. 화면의 <b>—</b> 는 정상.</div></div>
+      <div class="panel c6"><h3>카테고리 매출 TOP</h3><div class="sub">상품 카테고리 기준 · metrics.yaml 그룹</div><div class="chart"><canvas id="chCat"></canvas></div></div>
+      <div class="panel c6"><h3>베스트 상품 TOP 10</h3><div class="sub">매출 기준</div><table id="tblBest"></table></div>
+    </div>
+
+    <h2 class="sec">접속통계 <span class="note">카페24 통계 API · 비교기간 = 직전 동일 길이</span></h2>
+    <div class="grid" id="shop">
+      <div class="panel c3"><h3>방문</h3><div class="sub">카페24 통계 기준</div><table id="saVisitors"></table></div>
+      <div class="panel c9 c8"><h3>상품별 조회 → 담기 → 주문</h3><div class="sub" id="funnelSub">담기율은 기간 합계로 재계산 · 병목 = 중위값의 절반 미만 · <b>담기 0건 = '담을 수 없는 상태'(품절/판매중지/옵션 미설정) 신호</b></div><table id="saFunnel"></table></div>
+      <div class="panel c4"><h3>담기율 낮은 상품 경고</h3><div class="sub">병목 또는 담기 0건</div><table id="saLow"></table></div>
+      <div class="panel c4"><h3>자연 검색 유입 검색어</h3><div class="sub">GA4 에 없는 실제 검색어</div><table id="saKw"></table></div>
+      <div class="panel c4"><h3>상품별 판매</h3><div class="sub">주문수 · 수량</div><table id="saPsales"></table></div>
+      <div class="panel c4"><h3>유입 도메인</h3><div class="sub">방문 기준</div><table id="saDom"></table></div>
+      <div class="panel c4"><h3>광고채널별 방문</h3><div class="sub">카페24 유입경로 광고 분류</div><table id="saAds"></table></div>
+      <div class="panel c4"><h3>회원 / 비회원</h3><div class="sub">주문수 · 금액</div><table id="saMem"></table></div>
+      <div class="panel"><h3>페이지별 조회 TOP</h3><div class="sub">카페24 페이지뷰</div><table id="saPages"></table></div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="panel"><h3>일별 상세</h3><div class="sub">kpi_daily</div><table id="tblDaily"></table></div>
+      <div class="panel"><h3>미연동·예정 지표</h3><div class="sub">연결 전 또는 API 미제공</div><div id="planned" class="note"></div></div>
+    </div>
+  </section>
+
+  <!-- ───────── 광고 ───────── -->
+  <section id="tab-ads" class="hidden">
+    <div class="cards" id="adCards"></div>
+    <div class="grid">
+      <div class="panel"><h3>채널별 성과</h3><div class="sub" id="adsSub">선택 기간 합계 · 비교기간 = 직전 동일 길이 · 네이버는 파워링크/플레이스 자동 분리 · 'GA4 전환'은 매체(source/medium)→채널 매핑 기준</div><table id="tblAds"></table></div>
+      <div class="panel c6"><h3>채널별 광고비 추이</h3><div class="sub">일별 · 채널 누적</div><div class="legend" id="lgAdTrend"></div><div class="chart"><canvas id="chAdTrend"></canvas></div></div>
+      <div class="panel c6"><h3>채널별 전환(결과) 흐름</h3><div class="sub">일별 · 채널 API 전환 기준</div><div class="legend" id="lgConvTrend"></div><div class="chart"><canvas id="chConvTrend"></canvas></div></div>
+    </div>
+    <h2 class="sec">GA4 사이트 분석 <span class="note" id="ga4Note"></span></h2>
+    <div class="cards" id="ga4Cards"></div>
+    <div class="grid">
+      <div class="panel c7 c8"><h3>매체별 유입·전환</h3><div class="sub">sessionSourceMedium · 전환 = GA4 핵심 이벤트</div><table id="tblGa4Ch"></table></div>
+      <div class="panel c4"><h3>인기 페이지 TOP</h3><div class="sub">pagePath · 조회수</div><table id="tblGa4Pages"></table></div>
+      <div class="panel c6"><h3>경쟁사 검색 트렌드</h3><div class="sub">네이버 데이터랩 상대지수(0~100) · 절대 검색량 아님</div><div class="legend" id="lgComp"></div><div class="chart"><canvas id="chComp"></canvas></div></div>
+      <div class="panel c6"><h3>미연동 광고 채널 안내</h3><div class="sub">광고비가 빠지면 ROAS 가 과대</div><div class="note">크리테오·네이버 GFA·브랜드검색은 연동 없음 — 유입은 GA4 에 잡히지만 광고비가 없어 ROAS 가 실제보다 높게 보입니다. 집행 중이면 업체에 미리 고지. 카카오·구글은 채널 연결 탭에서 키만 넣으면 자동 수집.</div></div>
+    </div>
+  </section>
+
+  <!-- ───────── 광고 히스토리 ───────── -->
+  <section id="tab-history" class="hidden">
+    <div class="sub-nav sub" id="histNav">
+      <button data-h="meta" class="on">Meta 소재</button><button data-h="naver_powerlink">네이버 검색(키워드)</button><button data-h="naver_place">네이버 플레이스</button>
+      <span class="note" id="histNote"></span>
+    </div>
+    <div id="hist-meta">
+      <div class="grid" style="margin-bottom:12px"><div class="panel"><h3>소재별 CTR 추이 (광고비 상위 5)</h3><div class="sub">CTR 하락 + 빈도 상승 = 피로도. 높음이면 소재 교체 검토</div><div class="legend" id="lgCr"></div><div class="chart"><canvas id="chCr"></canvas></div></div></div>
+      <div class="creatives" id="creatives"></div>
+    </div>
+    <div id="hist-naver_powerlink" class="hidden">
+      <div class="sub-nav"><span class="note">정렬:</span><select id="kwSort"><option value="ad_cost">광고비 소진</option><option value="ad_clicks">클릭</option><option value="ad_impressions">노출</option><option value="ad_conversions">전환</option><option value="roas">ROAS</option><option value="ctr">CTR</option></select></div>
+      <div class="panel"><h3>키워드 리포트</h3><div class="sub">캠페인 · 광고그룹 · 키워드 · 노출 · 클릭 · CTR · CPC · 광고비 · 전환 · CPA · ROAS</div><table id="tblKw"></table></div>
+    </div>
+    <div id="hist-naver_place" class="hidden">
+      <div class="panel"><h3>플레이스 광고그룹</h3><div class="sub">광고그룹 단위 성과</div><table id="tblPlace"></table></div>
+    </div>
+  </section>
+
+  <!-- ───────── 주간 리포트 ───────── -->
+  <section id="tab-report" class="hidden report">
+    <div class="sub-nav sub" id="repNav">
+      <button data-r="weekly" class="on">주간</button><button data-r="monthly">월간</button>
+      <button id="repPrev" title="이전">◀</button><span id="repTitle" style="font-weight:650"></span><button id="repNext" title="다음">▶</button>
+      <a class="btn" id="repDocx" href="#" download>Word(.docx) 다운로드</a>
+      <span class="note" id="repNote"></span>
+    </div>
+    <div id="repBody"></div>
+  </section>
+
+  <!-- ───────── 채널 연결 ───────── -->
+  <section id="tab-channels" class="hidden">
+    <div class="brief">
+      <h2>채널 연결 순서</h2>
+      <div class="head">쉬운 채널부터 하나씩. 키가 없는 채널은 자동 스킵되며, 한 채널만 채워도 그 채널만 수집됩니다.</div>
+      <ul>
+        <li><code>config/secrets.env</code> 에 해당 채널 값 입력 (<code>cp config/secrets.env.example config/secrets.env</code>)</li>
+        <li><code>python scripts/smoke_live.py --check</code> 로 인증 확인 → <code>python scripts/run_all.py --mode live --days 14</code></li>
+        <li>이 화면 새로고침 → 아래 카드가 녹색이면 연결 완료. 순서·상세는 <code>docs/SETUP-GUIDE.md</code></li>
+      </ul>
+    </div>
+    <div class="ch" id="channels"></div>
+    <div class="panel" style="margin-top:12px"><h3>최근 수집 로그</h3><div class="sub">collect_log 최신 50건</div><table id="tblLogs"></table></div>
+  </section>
+</main>
+
+<script>
+window.onerror = (m, s, l) => showErr(`화면 오류: ${m} (${l})`);
+const $ = (s) => document.querySelector(s);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const SERIES = () => ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'].map(css);
+const charts = {};
+let CFG = {}, RANGE = { from: null, to: null }, REP = { kind: 'weekly', key: null };
+
+function showErr(msg) { const e = $('#error'); e.textContent = msg; e.classList.remove('hidden'); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// 정적 스냅샷 모드 (scripts/export_static.py 가 window.__SNAPSHOT__ 을 주입) — API 없이 링크로 열람
+const SNAP = window.__SNAPSHOT__ || null;
+async function api(path) {
+  if (SNAP) return snapGet(path);
+  const r = await fetch(path); const j = await r.json();
+  if (!r.ok || j.error) throw new Error(j.error || j.detail || r.statusText);
+  return j;
+}
+function snapGet(path) {
+  const u = new URL(path, 'http://x'); const p = u.pathname;
+  const fixed = { '/api/config': 'config', '/api/dates': 'dates', '/api/channels': 'channels', '/api/logs': 'logs', '/api/digest': 'digest',
+                  '/api/period-comparison': 'period_comparison', '/api/report/weekly': 'report_weekly', '/api/report/monthly': 'report_monthly' };
+  if (fixed[p]) return SNAP[fixed[p]];
+  const f = u.searchParams.get('from'), t = u.searchParams.get('to');
+  const days = f && t ? Math.round((new Date(t) - new Date(f)) / 864e5) + 1 : 14;
+  const avail = Object.keys(SNAP.ranges).map(Number);
+  const pick = avail.includes(days) ? days : avail.reduce((a, b) => Math.abs(b - days) < Math.abs(a - days) ? b : a);
+  const R = SNAP.ranges[pick];
+  const key = { '/api/summary': 'summary', '/api/daily': 'daily', '/api/breakdown': 'breakdown', '/api/shop/analytics': 'shop',
+                '/api/ads/channels': 'ads', '/api/competitors/trend': 'competitors', '/api/creatives/overview': 'creatives',
+                '/api/creatives/trend': 'creative_trend', '/api/ga4/site': 'ga4' }[p];
+  if (p === '/api/ads/keywords') return u.searchParams.get('channel') === 'naver_place' ? R.place : R.keywords;
+  if (!key) throw new Error('snapshot 에 없는 경로: ' + p);
+  return R[key];
+}
+
+const fmt = {
+  krw: (v) => v == null ? '—' : Math.abs(v) >= 1e8 ? (v/1e8).toFixed(1)+'억' : Math.abs(v) >= 1e4 ? Math.round(v/1e4).toLocaleString()+'만' : Math.round(v).toLocaleString()+'원',
+  won: (v) => v == null ? '—' : Math.round(v).toLocaleString() + '원',
+  count: (v) => v == null ? '—' : Math.round(v).toLocaleString(),
+  pct: (v) => v == null ? '—' : v.toFixed(v >= 100 ? 0 : 2) + '%',
+  pct1: (v) => v == null ? '—' : v.toFixed(1) + '%',
+  num: (v) => v == null ? '—' : (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(1)),
+  sec: (v) => v == null ? '—' : `${Math.floor(v / 60)}분 ${Math.round(v % 60)}초`,
+  delta: (p) => p == null ? '—' : (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p).toFixed(1) + '%',
+  compact: (v) => v == null ? '' : Math.abs(v) >= 1e8 ? (v/1e8).toFixed(1)+'억' : Math.abs(v) >= 1e4 ? Math.round(v/1e4)+'만' : Math.abs(v) >= 1e3 ? (v/1e3).toFixed(0)+'K' : Math.round(v),
+};
+const UNIT = { gross_sales: 'krw', aov: 'krw', ad_cost: 'krw', ad_revenue: 'krw', cpc: 'won', cpa: 'won', conversion_rate: 'pct', roas: 'pct', ctr: 'pct',
+               cvr: 'pct', mobile_share: 'pct1', revisit_rate: 'pct1', ad_cost_ratio: 'pct1', avg_session_sec: 'sec', new_order_share: 'pct1' };
+const LABEL = { gross_sales: '매출', orders: '주문수', aov: '객단가', visitors: '방문자', conversion_rate: '구매전환율', new_orders: '신규 주문', returning_orders: '재구매 주문',
+                ad_cost: '광고비', roas: 'ROAS', ad_cost_ratio: '광고비율', mobile_share: '모바일 비중', reviews: '후기', sessions: '세션', pageviews: '페이지뷰',
+                avg_session_sec: '평균 체류', new_visitors: '신규 방문', returning_visitors: '재방문', ga4_conversions: 'GA4 전환', revisit_rate: '재방문율',
+                ad_revenue: '광고 전환매출', ad_clicks: '클릭', ad_impressions: '노출', ad_conversions: '전환(결과)', cpa: 'CPA', cvr: 'CVR', ctr: 'CTR', cpc: 'CPC' };
+const unitFor = (k) => UNIT[k] || 'count';
+const F = (k, v) => fmt[unitFor(k)](v);
+const GOOD_DOWN = new Set(['ad_cost', 'cpc', 'cpa', 'canceled_orders', 'ad_cost_ratio']);
+const dcls = (k, p) => p == null ? '' : ((p >= 0) !== GOOD_DOWN.has(k) ? 'up' : 'down');
+const dspan = (k, p) => `<span class="${dcls(k, p)}">${fmt.delta(p)}</span>`;
+
+function baseOpts(extra = {}) {
+  const grid = css('--grid'), t2 = css('--text-2');
+  return Object.assign({
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: css('--card'), titleColor: css('--text'), bodyColor: t2, borderColor: css('--border'), borderWidth: 1 } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: t2, maxRotation: 0, autoSkip: true, maxTicksLimit: 8, callback(v) { return String(this.getLabelForValue(v)).slice(5); } } },
+      y: { beginAtZero: true, grid: { color: grid, lineWidth: 1 }, border: { display: false }, ticks: { color: t2, maxTicksLimit: 5, callback: (v) => fmt.compact(v) } },
+    },
+  }, extra);
+}
+function stackedOpts(fmtTip) {
+  const o = baseOpts(); o.scales.x.stacked = true; o.scales.y.stacked = true;
+  if (fmtTip) o.plugins.tooltip.callbacks = { label: (c) => ` ${c.dataset.label} ${fmtTip(c.raw)}` };
+  return o;
+}
+function mk(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($('#' + id), cfg); }
+function legend(id, items) { $('#' + id).innerHTML = items.map(([l, c]) => `<span><i style="background:${c}"></i>${esc(l)}</span>`).join(''); }
+const barDs = (label, data, color, extra = {}) => Object.assign({ label, data, backgroundColor: color, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: 'bottom', maxBarThickness: 24, borderWidth: 0 }, extra);
+const lineDs = (label, data, color, extra = {}) => Object.assign({ label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBorderColor: css('--card'), pointBorderWidth: 2, tension: 0.25, fill: false, spanGaps: true }, extra);
+const tbl = (id, header, rows, emptyMsg) => { $('#' + id).innerHTML = rows.length ? `<tr>${header.map((h, i) => `<th${i === 0 ? ' style="text-align:left"' : ''}>${h}</th>`).join('')}</tr>` + rows.join('') : `<tr><td class="empty">${emptyMsg || '데이터 없음'}</td></tr>`; };
+
+// ---------- range ----------
+function setPreset(days) {
+  const to = CFG.maxDate ? new Date(CFG.maxDate + 'T00:00:00Z') : new Date();
+  const from = new Date(to); from.setUTCDate(from.getUTCDate() - (days - 1));
+  RANGE = { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  $('#from').value = RANGE.from; $('#to').value = RANGE.to;
+}
+document.querySelectorAll('#range [data-days]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#range [data-days]').forEach(x => x.classList.toggle('on', x === b));
+  setPreset(+b.dataset.days); loadAll();
+});
+$('#apply').onclick = () => { RANGE = { from: $('#from').value, to: $('#to').value }; document.querySelectorAll('#range [data-days]').forEach(x => x.classList.remove('on')); loadAll(); };
+const q = () => `from=${RANGE.from}&to=${RANGE.to}`;
+
+// ---------- tabs ----------
+const TABS = ['ops', 'ads', 'history', 'report', 'channels'];
+function showTab(name) {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
+  TABS.forEach(t => $('#tab-' + t).classList.toggle('hidden', t !== name));
+  $('#range').classList.toggle('hidden', name === 'channels' || name === 'report');
+  if (name === 'channels') loadChannels().catch(e => showErr(e.message));
+  if (name === 'report') loadReport().catch(e => showErr(e.message));
+  if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.includes(h)) showTab(h); });
+
+// ---------- 카페24 어드민 ----------
+async function loadOps() {
+  const [sum, daily, bd, dg, pc, sa] = await Promise.all([api(`/api/summary?${q()}`), api(`/api/daily?${q()}`), api(`/api/breakdown?${q()}`),
+    api(`/api/digest?date=${RANGE.to}`), api(`/api/period-comparison?date=${RANGE.to}`), api(`/api/shop/analytics?${q()}`)]);
+  $('#rangeHint').textContent = `${sum.range.from} ~ ${sum.range.to} (비교: ${sum.prev_range.from} ~ ${sum.prev_range.to})`;
+  const S = SERIES(), labels = daily.map(d => d.date);
+
+  const b = $('#brief'); b.querySelector('.head').textContent = `${dg.date} · ${dg.headline}`;
+  b.querySelector('ul').innerHTML = dg.lines.map(l => `<li>${esc(l)}</li>`).join('') || '<li>데이터 없음</li>';
+
+  const cards = (CFG.metrics?.summary_cards) || [];
+  $('#cards').innerHTML = cards.map(c => {
+    const cur = sum.cur[c.key], pct = (sum.compare[c.key] || {}).pct;
+    const note = c.key === 'visitors' ? (sum.cur.visitors == null ? 'GA4 미연결' : (sum.cur.visitors_source === 0 ? '카페24 통계 기준' : 'GA4 기준')) : '';
+    return `<div class="card"><div class="lbl">${esc(c.label)}</div><div class="val">${fmt[c.unit](cur)}</div><div class="dlt">${dspan(c.key, pct)} ${pct == null ? (note || '비교 불가') : '직전 기간 대비'}</div></div>`;
+  }).join('');
+
+  // 기간비교표
+  $('#pcSub').textContent = `${pc.date} 당일 vs 전일 ${pc.ref_dates.prev_day} · 전주 ${pc.ref_dates.prev_week} · 전년 ${pc.ref_dates.prev_year}`;
+  tbl('tblPeriod', ['지표', '당일', '전일', '전일 대비', '전주', '전주 대비', '전년', '전년 대비'], pc.rows.filter(r => r.cur != null).map(r =>
+    `<tr><td>${LABEL[r.metric] || r.metric}</td><td><b>${F(r.metric, r.cur)}</b></td><td>${F(r.metric, r.prev_day.val)}</td><td>${dspan(r.metric, r.prev_day.pct)}</td>` +
+    `<td>${F(r.metric, r.prev_week.val)}</td><td>${dspan(r.metric, r.prev_week.pct)}</td><td>${F(r.metric, r.prev_year.val)}</td><td>${dspan(r.metric, r.prev_year.pct)}</td></tr>`));
+
+  mk('chSales', { type: 'bar', data: { labels, datasets: [barDs('매출', daily.map(d => d.gross_sales), S[0])] },
+    options: baseOpts({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` 매출 ${fmt.krw(c.raw)} · 주문 ${fmt.count(daily[c.dataIndex].orders)}건 · 객단가 ${fmt.krw(daily[c.dataIndex].aov)}` } } } }) });
+  legend('lgNR', [['신규', S[0]], ['재구매', S[2]]]);
+  mk('chNR', { type: 'bar', data: { labels, datasets: [barDs('신규', daily.map(d => d.new_orders), S[0], { stack: 'o', borderRadius: 0 }), barDs('재구매', daily.map(d => d.returning_orders), S[2], { stack: 'o' })] }, options: stackedOpts(fmt.count) });
+  mk('chAdCost', { type: 'bar', data: { labels, datasets: [barDs('광고비', daily.map(d => d.ad_cost), S[1])] },
+    options: baseOpts({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` 광고비 ${fmt.krw(c.raw)} · ROAS ${fmt.pct(daily[c.dataIndex].roas)}` } } } }) });
+
+  const ms = sum.cur.mobile_sales || 0, ps = sum.cur.pc_sales || 0, tot = ms + ps || 1;
+  legend('lgDev', [['모바일', S[0]], ['PC', S[1]]]);
+  mk('chDev', { type: 'bar', data: { labels: ['매출'], datasets: [
+      { label: '모바일', data: [ms / tot * 100], backgroundColor: S[0], stack: 'd', borderRadius: 4, borderSkipped: false, maxBarThickness: 24 },
+      { label: 'PC', data: [ps / tot * 100], backgroundColor: S[1], stack: 'd', borderRadius: 4, borderSkipped: false, maxBarThickness: 24 }] },
+    options: baseOpts({ indexAxis: 'y', scales: { x: { stacked: true, max: 100, grid: { display: false }, ticks: { display: false } }, y: { stacked: true, grid: { display: false }, ticks: { display: false } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} ${c.raw.toFixed(1)}%` } } } }) });
+  tbl('tblDev', ['구분', '매출', '주문', '객단가', '매출 비중'], [
+    `<tr><td>모바일</td><td>${fmt.krw(ms)}</td><td>${fmt.count(sum.cur.mobile_orders)}</td><td>${fmt.krw(sum.cur.mobile_orders ? ms / sum.cur.mobile_orders : null)}</td><td>${(ms / tot * 100).toFixed(1)}%</td></tr>`,
+    `<tr><td>PC</td><td>${fmt.krw(ps)}</td><td>${fmt.count(sum.cur.pc_orders)}</td><td>${fmt.krw(sum.cur.pc_orders ? ps / sum.cur.pc_orders : null)}</td><td>${(ps / tot * 100).toFixed(1)}%</td></tr>`]);
+
+  // 방문자 상세
+  const vrow = (l, k) => `<tr><td>${l}</td><td>${F(k, sum.cur[k])}</td><td>${dspan(k, (sum.compare[k] || {}).pct)}</td></tr>`;
+  tbl('tblVisDetail', ['구분', '선택 기간', '직전 대비'], sum.cur.visitors != null ? [vrow('전체 방문자(GA4)', 'visitors'), vrow('신규 방문', 'new_visitors'), vrow('재방문', 'returning_visitors'), vrow('재방문율', 'revisit_rate'),
+    vrow('세션', 'sessions'), vrow('평균 체류', 'avg_session_sec'), `<tr><td>카페24 방문</td><td>${fmt.count(sa.visitors.visit_count)}</td><td>${dspan('visitors', sa.visitors.prev_visit_count ? (sa.visitors.visit_count - sa.visitors.prev_visit_count) / sa.visitors.prev_visit_count * 100 : null)}</td></tr>`] : [],
+    'GA4 미연결 — docs/GA4-SETUP.md');
+
+  const hasGa4 = daily.some(d => d.visitors_source === 1), hasC24 = daily.some(d => d.cafe24_visits != null);
+  const visDs = [];
+  if (daily.some(d => d.visitors != null)) visDs.push(lineDs(hasGa4 ? 'GA4 사용자' : '카페24 방문', daily.map(d => d.visitors), S[0]));
+  if (hasGa4 && hasC24) visDs.push(lineDs('카페24 방문', daily.map(d => d.cafe24_visits), S[3]));
+  legend('lgVis', visDs.length > 1 ? visDs.map(d => [d.label, d.borderColor]) : []);
+  if (visDs.length) mk('chVis', { type: 'line', data: { labels, datasets: visDs }, options: baseOpts() });
+  else { if (charts.chVis) charts.chVis.destroy(); $('#visitorSub').textContent = 'GA4 미연결 — docs/GA4-SETUP.md (카페24 Admin API 에는 방문자 엔드포인트가 없음)'; }
+
+  mk('chCat', { type: 'bar', data: { labels: bd.categories.map(c => c.category), datasets: [{ label: '매출', data: bd.categories.map(c => c.sales), backgroundColor: S[0], borderRadius: { topRight: 4, bottomRight: 4 }, borderSkipped: 'left', maxBarThickness: 24 }] },
+    options: baseOpts({ indexAxis: 'y', scales: { x: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5, callback: (v) => fmt.compact(v) } }, y: { grid: { display: false }, ticks: { color: css('--text-2') } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${fmt.krw(c.raw)} (${bd.categories[c.dataIndex].share.toFixed(1)}%)` } } } }) });
+  tbl('tblBest', ['#', '상품', '매출'], bd.best.map((p, i) => `<tr><td>${i + 1}</td><td class="name">${esc(p.product)}</td><td>${fmt.krw(p.sales)}</td></tr>`));
+
+  // 접속통계 9블록
+  const v = sa.visitors;
+  tbl('saVisitors', ['구분', '값'], v.visit_count != null ? [`<tr><td>방문</td><td>${fmt.count(v.visit_count)}</td></tr>`, `<tr><td>신규</td><td>${fmt.count(v.first_visit_count)}</td></tr>`, `<tr><td>재방문</td><td>${fmt.count(v.re_visit_count)}</td></tr>`,
+    `<tr><td>재방문율</td><td>${fmt.pct1(v.revisit_rate)}</td></tr>`, `<tr><td>비교기간 방문</td><td>${fmt.count(v.prev_visit_count)}</td></tr>`] : [], '통계 API 미연결 (mall.read_analytics)');
+  const fr = sa.funnel.rows, ft = sa.funnel.totals, pft = sa.prev_funnel_totals;
+  const fs = $('#funnelSub'); fs.dataset.base ??= fs.innerHTML;
+  fs.innerHTML = fs.dataset.base + (sa.funnel.median_cart_rate != null ? ` · 중위 담기율 ${sa.funnel.median_cart_rate.toFixed(2)}% · 조회수 ${sa.funnel.min_views} 이상만` : '');
+  tbl('saFunnel', ['상품', '조회', '담기', '담기율', '주문', '담기→주문'], fr.map(r => `<tr><td class="name">${esc(r.product)}${r.cannot_add ? '<span class="tag bad">담기 0 · 담을 수 없는 상태?</span>' : r.bottleneck ? '<span class="tag warn">병목</span>' : ''}</td><td>${fmt.count(r.views)}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}</td><td>${fmt.count(r.orders)}</td><td>${fmt.pct1(r.order_rate)}</td></tr>`)
+    .concat(fr.length ? [`<tr><td><b>합계</b></td><td><b>${fmt.count(ft.views)}</b></td><td><b>${fmt.count(ft.cart_adds)}</b></td><td><b>${fmt.pct(ft.cart_rate)}</b> <span class="rank">(비교 ${fmt.pct(pft.cart_rate)})</span></td><td><b>${fmt.count(ft.orders)}</b></td><td><b>${fmt.pct1(ft.order_rate)}</b> <span class="rank">(비교 ${fmt.pct1(pft.order_rate)})</span></td></tr>`] : []),
+    '카페24 통계 API 미연결 또는 조회수 부족');
+  tbl('saLow', ['상품', '조회', '담기', '담기율'], sa.low_cart_products.map(r => `<tr><td class="name">${esc(r.product)}<span class="tag ${r.cannot_add ? 'bad' : 'warn'}">${r.cannot_add ? '담을 수 없는 상태?' : '병목'}</span></td><td>${fmt.count(r.views)}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}</td></tr>`), '경고 상품 없음');
+  tbl('saKw', ['검색어', '유입'], sa.keywords.map(k => `<tr><td>${esc(k.keyword)}</td><td>${fmt.count(k.visits)}</td></tr>`));
+  tbl('saPsales', ['상품', '주문', '수량'], sa.product_sales.map(r => `<tr><td class="name">${esc(r.product)}</td><td>${fmt.count(r.orders)}</td><td>${fmt.count(r.qty)}</td></tr>`));
+  tbl('saDom', ['도메인', '방문'], sa.domains.map(r => `<tr><td>${esc(r.domain)}</td><td>${fmt.count(r.visits)}</td></tr>`));
+  tbl('saAds', ['광고채널', '방문'], sa.ad_paths.map(r => `<tr><td>${esc(r.ad_channel)}</td><td>${fmt.count(r.visits)}</td></tr>`));
+  tbl('saMem', ['구분', '주문', '금액', '객단가'], sa.members.map(r => `<tr><td>${esc(r.member_type)}</td><td>${fmt.count(r.orders)}</td><td>${fmt.krw(r.sales)}</td><td>${fmt.krw(r.orders ? r.sales / r.orders : null)}</td></tr>`));
+  tbl('saPages', ['페이지', '조회'], sa.pages.map(r => `<tr><td class="name" style="max-width:600px">${esc(r.path)}</td><td>${fmt.count(r.views)}</td></tr>`));
+
+  const cols = [['date', '날짜'], ['gross_sales', '매출'], ['orders', '주문'], ['aov', '객단가'], ['new_orders', '신규'], ['returning_orders', '재구매'], ['mobile_share', '모바일'], ['visitors', '방문자'], ['conversion_rate', '전환율'], ['ad_cost', '광고비'], ['roas', 'ROAS'], ['ad_cost_ratio', '광고비율'], ['reviews', '후기']];
+  tbl('tblDaily', cols.map(c => c[1]), [...daily].reverse().map(d => `<tr>${cols.map(([k]) => `<td>${k === 'date' ? d.date : F(k, d[k])}</td>`).join('')}</tr>`));
+
+  const planned = [];
+  if (sum.cur.visitors == null) planned.push('방문자·구매전환율·세션·체류시간 — GA4 연결 후 채워짐 (STEP 2)');
+  if (v.visit_count == null) planned.push('접속통계 9블록 — 카페24 통계 API (mall.read_analytics scope) 연결 후');
+  if (sum.cur.ad_cost == null) planned.push('광고비·ROAS — 광고 채널 연결 후 (STEP 3~7)');
+  planned.push('신규가입수·회원가입율 — 카페24 API 미제공 (화면 — 정상)');
+  planned.push('GA4 A→B→C 경로 추적 — BigQuery 내보내기 없이는 불가, 단계별 건수 감소로만 봄');
+  $('#planned').innerHTML = '<ul style="margin:0;padding-left:18px">' + planned.map(p => `<li>${esc(p)}</li>`).join('') + '</ul>';
+}
+
+// ---------- 광고 ----------
+async function loadAds() {
+  const [ad, sum, comp, g4] = await Promise.all([api(`/api/ads/channels?${q()}`), api(`/api/summary?${q()}`), api(`/api/competitors/trend?${q()}`), api(`/api/ga4/site?${q()}`)]);
+  const S = SERIES();
+  const cards = CFG.lead_gen ? ['ad_cost', 'ad_conversions', 'cpa', 'cvr', 'ctr', 'cpc', 'ad_impressions', 'ad_clicks'] : ['ad_cost', 'ad_revenue', 'roas', 'ad_conversions', 'cpa', 'cvr', 'ctr', 'cpc', 'ad_impressions', 'ad_cost_ratio'];
+  $('#adCards').innerHTML = cards.map(k => { const pct = (sum.compare[k] || {}).pct;
+    return `<div class="card"><div class="lbl">${LABEL[k]}</div><div class="val">${F(k, sum.cur[k])}</div><div class="dlt">${dspan(k, pct)} ${pct == null ? '' : '직전 기간 대비'}</div></div>`; }).join('');
+
+  const chCol = {}; ad.channels.forEach((r, i) => chCol[r.channel] = S[i % S.length]);
+  tbl('tblAds', ['채널', '광고비', '전 기간', '노출', '클릭', 'CTR', 'CPC', '전환(결과)', '전 기간', 'CPA', 'CVR', 'GA4 전환', '전환매출', 'ROAS'],
+    ad.channels.map(r => `<tr><td><i class="dot" style="display:inline-block;background:${chCol[r.channel]};margin-right:6px"></i>${esc(r.label)}</td><td>${fmt.krw(r.ad_cost)}</td><td>${dspan('ad_cost', r.prev_ad_cost ? (r.ad_cost - r.prev_ad_cost) / r.prev_ad_cost * 100 : null)}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.ad_conversions)}</td><td>${dspan('x', r.prev_ad_conversions ? (r.ad_conversions - r.prev_ad_conversions) / r.prev_ad_conversions * 100 : null)}</td><td>${fmt.won(r.cpa)}</td><td>${fmt.pct(r.cvr)}</td><td>${fmt.num(r.ga4_conversions)}</td><td>${fmt.krw(r.ad_revenue)}</td><td>${fmt.pct(r.roas)}</td></tr>`),
+    '광고 채널 미연결 — 채널 연결 탭에서 Meta / 네이버SA 부터 켜세요');
+
+  const chans = ad.channels.map(c => c.channel), labels = ad.trend.map(t => t.date);
+  legend('lgAdTrend', chans.map(c => [ad.channels.find(x => x.channel === c).label, chCol[c]]));
+  mk('chAdTrend', { type: 'bar', data: { labels, datasets: chans.map((c, i) => barDs(ad.channels[i].label, ad.trend.map(t => t[c] || 0), chCol[c], { stack: 'a', borderRadius: i === chans.length - 1 ? { topLeft: 4, topRight: 4 } : 0 })) }, options: stackedOpts(fmt.krw) });
+  legend('lgConvTrend', chans.map(c => [ad.channels.find(x => x.channel === c).label, chCol[c]]));
+  mk('chConvTrend', { type: 'line', data: { labels: ad.conv_trend.map(t => t.date), datasets: chans.map(c => lineDs(ad.channels.find(x => x.channel === c).label, ad.conv_trend.map(t => t[c] || 0), chCol[c], { pointRadius: 2 })) }, options: baseOpts() });
+
+  // GA4 사이트 분석
+  $('#ga4Note').textContent = g4.available ? `${g4.range.from} ~ ${g4.range.to} · 직전 동일 기간 대비` : 'GA4 미연결 — docs/GA4-SETUP.md';
+  const gk = ['visitors', 'sessions', 'pageviews', 'avg_session_sec', 'new_visitors', 'returning_visitors', 'revisit_rate', 'ga4_conversions'];
+  $('#ga4Cards').innerHTML = g4.available ? gk.map(k => { const m = g4.metrics[k]; return `<div class="card"><div class="lbl">${LABEL[k]}</div><div class="val">${F(k, m.cur)}</div><div class="dlt">${dspan(k, m.pct)} 직전 대비</div></div>`; }).join('') : '';
+  tbl('tblGa4Ch', ['매체 (source / medium)', '채널', '세션', '사용자', '전환', 'CVR'], g4.channels.map(r => `<tr><td>${esc(r.source_medium)}</td><td>${esc(r.label)}</td><td>${fmt.count(r.sessions)}</td><td>${fmt.count(r.users)}</td><td>${fmt.count(r.conversions)}</td><td>${fmt.pct(r.cvr)}</td></tr>`), 'GA4 미연결 또는 핵심 이벤트 미설정');
+  tbl('tblGa4Pages', ['페이지', '조회', '사용자'], g4.pages.map(r => `<tr><td class="name">${esc(r.path)}</td><td>${fmt.count(r.pageviews)}</td><td>${fmt.count(r.users)}</td></tr>`), 'GA4 미연결');
+
+  const brands = comp.brands || [];
+  legend('lgComp', brands.map((b, i) => [b.brand, S[i % S.length]]));
+  if (brands.length) {
+    const dates = [...new Set(brands.flatMap(b => b.points.map(p => p.date)))].sort();
+    mk('chComp', { type: 'line', data: { labels: dates, datasets: brands.map((b, i) => lineDs(b.brand, dates.map(d => (b.points.find(p => p.date === d) || {}).ratio ?? null), S[i % S.length])) },
+      options: baseOpts({ scales: { x: { grid: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 6, callback(v) { return String(this.getLabelForValue(v)).slice(5); } } }, y: { min: 0, max: 100, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5 } } } }) });
+  } else { if (charts.chComp) { charts.chComp.destroy(); delete charts.chComp; } $('#chComp').parentElement.innerHTML = '<div class="empty">네이버 오픈API 미연결 (NAVER_CLIENT_ID/SECRET) 또는 competitors 미설정</div>'; }
+}
+
+// ---------- 광고 히스토리 ----------
+document.querySelectorAll('#histNav [data-h]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#histNav [data-h]').forEach(x => x.classList.toggle('on', x === b));
+  ['meta', 'naver_powerlink', 'naver_place'].forEach(h => $('#hist-' + h).classList.toggle('hidden', h !== b.dataset.h));
+});
+$('#kwSort').onchange = () => loadKeywords().catch(e => showErr(e.message));
+async function loadHistory() {
+  const [cr, tr] = await Promise.all([api(`/api/creatives/overview?${q()}`), api(`/api/creatives/trend?${q()}`)]);
+  const S = SERIES();
+  $('#histNote').textContent = `${cr.range.from} ~ ${cr.range.to}`;
+  const fat = (l) => l === '높음' ? 'bad' : l === '주의' ? 'warn' : 'good';
+  $('#creatives').innerHTML = cr.rows.length ? cr.rows.map(r => `<div class="cr">${r.thumbnail_url ? `<img src="${esc(r.thumbnail_url)}" alt="" loading="lazy">` : '<div style="aspect-ratio:1;background:var(--surface-2)"></div>'}<div class="b">
+      <div class="t" title="${esc(r.ad_name)}">${esc(r.ad_name)}</div><div class="c">${esc(r.campaign)} · ${esc(r.adset)} <span class="tag ${fat(r.fatigue)}">피로도 ${r.fatigue}</span></div>
+      <div class="kv"><span>광고비</span><b>${fmt.krw(r.ad_cost)}</b><span>노출</span><b>${fmt.count(r.ad_impressions)}</b><span>클릭</span><b>${fmt.count(r.ad_clicks)}</b><span>CTR</span><b>${fmt.pct(r.ctr)}</b>
+      <span>CPC</span><b>${fmt.won(r.cpc)}</b><span>전환(결과)</span><b>${fmt.num(r.ad_conversions)}</b><span>전환율</span><b>${fmt.pct(r.cvr)}</b><span>CPA</span><b>${fmt.won(r.cpa)}</b>
+      <span>ROAS</span><b>${fmt.pct(r.roas)}</b><span>빈도</span><b>${r.frequency ? r.frequency.toFixed(2) : '—'}</b><span>CTR 초반→최근</span><b>${fmt.pct(r.ctr_early)} → ${fmt.pct(r.ctr_recent)}</b></div></div></div>`).join('')
+    : '<div class="panel"><div class="empty">Meta 미연결 — 채널 연결 탭 STEP 3 (소재 이미지는 활성/최근 활성 광고만 수집)</div></div>';
+  legend('lgCr', tr.series.map((s, i) => [s.ad_name, S[i % S.length]]));
+  if (tr.series.length) mk('chCr', { type: 'line', data: { labels: tr.dates, datasets: tr.series.map((s, i) => lineDs(s.ad_name, s.ctr, S[i % S.length], { pointRadius: 2 })) },
+    options: baseOpts({ scales: { x: { grid: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 8, callback(v) { return String(this.getLabelForValue(v)).slice(5); } } }, y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5, callback: (v) => v + '%' } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} CTR ${c.raw == null ? '—' : c.raw.toFixed(2) + '%'}` } } } }) });
+  else if (charts.chCr) { charts.chCr.destroy(); delete charts.chCr; }
+  await loadKeywords();
+}
+async function loadKeywords() {
+  const sort = $('#kwSort').value;
+  const [kw, pl] = await Promise.all([api(`/api/ads/keywords?${q()}&channel=naver_powerlink&sort=${sort}`), api(`/api/ads/keywords?${q()}&channel=naver_place`)]);
+  tbl('tblKw', ['캠페인', '광고그룹', '키워드', '노출', '클릭', 'CTR', 'CPC', '광고비', '전환', 'CPA', 'ROAS'], kw.rows.map(r => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.adgroup)}</td><td>${esc(r.keyword)}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.krw(r.ad_cost)}</td><td>${fmt.num(r.ad_conversions)}</td><td>${fmt.won(r.cpa)}</td><td>${fmt.pct(r.roas)}</td></tr>`), '네이버 검색광고 미연결 — STEP 4');
+  tbl('tblPlace', ['캠페인', '광고그룹', '노출', '클릭', 'CTR', 'CPC', '광고비', '전환', 'ROAS'], pl.rows.map(r => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.adgroup)}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.krw(r.ad_cost)}</td><td>${fmt.num(r.ad_conversions)}</td><td>${fmt.pct(r.roas)}</td></tr>`), '플레이스 캠페인 없음 또는 미연결');
+}
+
+// ---------- 리포트 (주간 / 월간) ----------
+document.querySelectorAll('#repNav [data-r]').forEach(b => b.onclick = () => { REP = { kind: b.dataset.r, key: null }; document.querySelectorAll('#repNav [data-r]').forEach(x => x.classList.toggle('on', x === b)); loadReport().catch(e => showErr(e.message)); });
+function shiftKey(dir) {
+  if (!REP.key) return;
+  if (REP.kind === 'weekly') { const d = new Date(REP.key + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 7 * dir); REP.key = d.toISOString().slice(0, 10); }
+  else { const [y, m] = REP.key.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + dir, 1)); REP.key = d.toISOString().slice(0, 7); }
+}
+$('#repPrev').onclick = () => { shiftKey(-1); loadReport().catch(e => showErr(e.message)); };
+$('#repNext').onclick = () => { shiftKey(1); loadReport().catch(e => showErr(e.message)); };
+async function loadReport() {
+  const isW = REP.kind === 'weekly';
+  const path = isW ? `/api/report/weekly${REP.key ? '?week=' + REP.key : ''}` : `/api/report/monthly${REP.key ? '?month=' + REP.key : ''}`;
+  const r = await api(path);
+  REP.key = isW ? r.range.from : r.range.from.slice(0, 7);
+  $('#repTitle').textContent = r.title;
+  $('#repDocx').href = (isW ? '/api/report/weekly.docx?week=' : '/api/report/monthly.docx?month=') + REP.key;
+  $('#repNote').textContent = `비교: ${r.prev_range.from} ~ ${r.prev_range.to}` + (SNAP ? ' · 스냅샷에서는 기본 기간만 표시' : '');
+  ['#repPrev', '#repNext', '#repDocx'].forEach(s => $(s).classList.toggle('hidden', !!SNAP));
+  const pw = r.prev_word, S = SERIES();
+  if (r.empty) { $('#repBody').innerHTML = `<div class="brief"><div class="head">${esc(r.title)}</div><div class="note">이 기간에 수집된 날짜가 없습니다 — 데이터 누적 후 지표가 채워집니다. (missing_dates: ${r.missing_dates.length}일)</div></div>`; return; }
+  let n = 1;
+  const sec = (t, body, extraCls = '') => `<div class="panel ${extraCls}"><h3>${n++}. ${t}</h3>${body}</div>`;
+  const sumKeys = ['gross_sales', 'orders', 'aov', 'visitors', 'conversion_rate', 'ad_cost', 'roas', 'ad_cost_ratio', 'new_orders', 'returning_orders'].filter(k => r.summary[k].cur != null);
+  const html = [];
+  html.push(`<div class="brief"><h2>한 장 요약</h2><div class="head">${esc(r.headline)}</div>` +
+    (r.missing_dates.length ? `<div class="note" style="color:var(--warn)">⚠ 수집 누락일 ${r.missing_dates.length}일: ${r.missing_dates.join(', ')}</div>` : '') +
+    `<div class="note">좋아진 것: ${r.better.map(k => LABEL[k]).join(', ') || '—'} · 아쉬운 것: ${r.worse.map(k => LABEL[k]).join(', ') || '—'}</div></div>`);
+  html.push(`<div class="cards">${sumKeys.map(k => { const m = r.summary[k]; return `<div class="card"><div class="lbl">${LABEL[k]}</div><div class="val">${F(k, m.cur)}</div><div class="dlt">${dspan(k, m.pct)} ${pw} ${F(k, m.prev)}</div></div>`; }).join('')}</div>`);
+  html.push('<div class="grid">');
+  if (r.channels.length) html.push(sec('매체별 광고 성과', `<table>${['채널', '광고비', `${pw} 대비`, '클릭', 'CTR', 'CPC', '전환(결과)', `${pw} 전환`, 'CPA', 'ROAS', `${pw} ROAS`].map((h, i) => `<th${i ? '' : ' style="text-align:left"'}>${h}</th>`).join('')}` +
+    r.channels.map(c => `<tr><td>${esc(c.label)}</td><td>${fmt.krw(c.ad_cost)}</td><td>${dspan('ad_cost', c.ad_cost_pct)}</td><td>${fmt.count(c.ad_clicks)}</td><td>${fmt.pct(c.ctr)}</td><td>${fmt.won(c.cpc)}</td><td>${fmt.num(c.ad_conversions)}</td><td>${fmt.num(c.prev_ad_conversions)}</td><td>${fmt.won(c.cpa)}</td><td>${fmt.pct(c.roas)}</td><td>${fmt.pct(c.prev_roas)}</td></tr>`).join('') + '</table>'));
+  const f = r.funnel;
+  if (f.totals.views) {
+    html.push(sec('구매 퍼널 병목', `<div class="note" style="margin-bottom:6px">병목 단계: <b>${f.bottleneck ? esc(f.bottleneck) : '없음'}</b> — 단계별 전환율을 ${pw}와 대조해 더 크게 떨어진 단계. 조회 ${fmt.count(f.totals.views)} → 담기 ${fmt.count(f.totals.cart_adds)} → 주문 ${fmt.count(f.totals.orders)}</div>` +
+      `<table><tr><th style="text-align:left">단계</th><th>이번 기간</th><th>${pw}</th><th>증감(pt)</th></tr>` + f.stages.map(s => `<tr><td>${s.stage}${f.bottleneck === s.stage ? '<span class="tag bad">병목</span>' : ''}</td><td>${fmt.pct(s.rate)}</td><td>${fmt.pct(s.prev_rate)}</td><td>${s.delta_pt == null ? '—' : `<span class="${s.delta_pt >= 0 ? 'up' : 'down'}">${s.delta_pt >= 0 ? '+' : ''}${s.delta_pt.toFixed(2)}</span>`}</td></tr>`).join('') + '</table>', 'c6'));
+    html.push(sec('담기율 낮은 상품', f.low_cart_products.length ? `<div class="note" style="margin-bottom:6px">조회 ${f.min_views} 이상 · 담기 0건은 '담을 수 없음'(품절·판매중지·옵션 미설정) 신호</div><table><tr><th style="text-align:left">상품</th><th>조회</th><th>담기</th><th>담기율</th></tr>` +
+      f.low_cart_products.map(p => `<tr><td class="name">${esc(p.product)}<span class="tag ${p.cannot_add ? 'bad' : 'warn'}">${p.cannot_add ? '담을 수 없는 상태?' : '병목'}</span></td><td>${fmt.count(p.views)}</td><td>${fmt.count(p.cart_adds)}</td><td>${fmt.pct(p.cart_rate)}</td></tr>`).join('') + '</table>' : '<div class="empty">해당 상품 없음</div>', 'c6'));
+  }
+  if (r.best.length) html.push(sec('베스트 상품', `<table><tr><th style="text-align:left">#</th><th style="text-align:left">상품</th><th>매출</th><th>${pw} 순위</th></tr>` + r.best.map(p => `<tr><td>${p.rank}</td><td class="name">${esc(p.product)}</td><td>${fmt.krw(p.sales)}</td><td>${p.prev_rank ? (p.prev_rank > p.rank ? `<span class="up">▲ ${p.prev_rank - p.rank}</span>` : p.prev_rank < p.rank ? `<span class="down">▼ ${p.rank - p.prev_rank}</span>` : '—') : '<span class="tag good">신규</span>'}</td></tr>`).join('') + '</table>', 'c6'));
+  const c = r.customers;
+  html.push(sec('고객 구성', `<table><tr><th style="text-align:left">구분</th><th>이번 기간</th><th>${pw}</th></tr><tr><td>신규 주문</td><td>${fmt.count(c.new_orders)}</td><td>${fmt.count(c.prev_new_orders)}</td></tr><tr><td>재구매 주문</td><td>${fmt.count(c.returning_orders)}</td><td>${fmt.count(c.prev_returning_orders)}</td></tr><tr><td>모바일 매출 비중</td><td>${fmt.pct1(c.mobile_share)}</td><td>${fmt.pct1(c.prev_mobile_share)}</td></tr>` +
+    c.members.map(m => `<tr><td>${esc(m.member_type)} 주문 / 금액</td><td>${fmt.count(m.orders)} / ${fmt.krw(m.sales)}</td><td>—</td></tr>`).join('') + '</table>', 'c6'));
+  if (r.keywords.length) html.push(sec('자연 검색 유입 검색어', `<table><tr><th style="text-align:left">#</th><th style="text-align:left">검색어</th><th>유입</th><th>${pw} 순위</th></tr>` + r.keywords.map(k => `<tr><td>${k.rank}</td><td class="name">${esc(k.keyword)}</td><td>${fmt.count(k.visits)}</td><td>${k.prev_rank ?? '<span class="tag good">신규</span>'}</td></tr>`).join('') + '</table>', 'c6'));
+  if (r.ga4_channels.length) html.push(sec('GA4 매체별 유입·전환', `<table><tr><th style="text-align:left">매체</th><th>세션</th><th>전환</th><th>CVR</th></tr>` + r.ga4_channels.map(g => `<tr><td>${esc(g.source_medium)}</td><td>${fmt.count(g.sessions)}</td><td>${fmt.count(g.conversions)}</td><td>${fmt.pct(g.cvr)}</td></tr>`).join('') + '</table>', 'c6'));
+  if (r.categories.length) html.push(sec('카테고리 매출', `<table><tr><th style="text-align:left">카테고리</th><th>매출</th><th>비중</th></tr>` + r.categories.map(k => `<tr><td>${esc(k.category)}</td><td>${fmt.krw(k.sales)}</td><td>${fmt.pct1(k.share)}</td></tr>`).join('') + '</table>', 'c6'));
+  html.push('</div>');
+  $('#repBody').innerHTML = html.join('');
+}
+
+// ---------- 채널 연결 ----------
+async function loadChannels() {
+  const [chs, logs] = await Promise.all([api('/api/channels'), api('/api/logs?limit=50')]);
+  chs.sort((a, b) => parseInt(a.step.replace(/\D/g, '')) - parseInt(b.step.replace(/\D/g, '')));
+  $('#channels').innerHTML = chs.map(c => {
+    const last = c.last, st = c.configured ? (last ? (last.status === 'ok' ? 'on' : last.status === 'partial' ? 'partial' : last.status === 'fail' ? 'fail' : 'on') : 'on') : '';
+    const envs = c.env.map(e => `<span class="${e.set ? 'ok' : 'no'}">${e.name}</span>`).join('') + c.optional_env.map(e => `<span class="${e.set ? 'ok' : 'no'} opt">${e.name} (선택)</span>`).join('');
+    return `<div class="card"><div class="top"><i class="dot ${st}"></i><span class="title">${esc(c.label)}</span><span class="step">${esc(c.step)}</span></div>
+      <div class="env">${envs || '<span class="opt">하위 채널 중 하나라도 설정되면 활성</span>'}</div>
+      <div class="last">${c.mode === 'demo' ? '현재 데모 모드 — CAFE24_OPS_MODE=live 로 전환 후 수집' : last ? `마지막 수집 ${last.date} · ${last.status} · ${esc(last.message || '')}` : (c.configured ? '설정됨 · 아직 수집 전' : '미설정 · 자동 스킵')}</div>
+      <div class="doc">가이드: <code>${esc(c.doc)}</code> · 탭: ${esc(c.tab)}</div></div>`;
+  }).join('');
+  tbl('tblLogs', ['실행', '날짜', '소스', '상태', '메시지'], logs.map(l => `<tr><td>${esc(l.run_at.replace('T', ' ').slice(0, 19))}</td><td>${l.date}</td><td>${l.source}</td><td>${l.status}</td><td style="text-align:left;white-space:normal">${esc(l.message || '')}</td></tr>`), '아직 수집 기록 없음');
+}
+
+async function loadAll() {
+  $('#error').classList.add('hidden');
+  try { await Promise.all([loadOps(), loadAds(), loadHistory()]); }
+  catch (e) { showErr(`데이터 로드 실패: ${e.message}\n→ 수집이 아직 없으면: python scripts/run_all.py --mode demo --days 60`); console.error(e); }
+}
+
+(async function init() {
+  try {
+    CFG = await api('/api/config'); const dates = await api('/api/dates'); CFG.maxDate = dates.max;
+    $('#brand').textContent = `${CFG.brand} 운영현황`; document.title = `${CFG.brand} 운영현황 대시보드`;
+    const mb = $('#modeBadge'); mb.textContent = CFG.mode === 'demo' ? '데모 데이터' : 'LIVE'; mb.classList.add(CFG.mode === 'demo' ? 'demo' : 'live');
+    $('#lastRun').textContent = CFG.last_run_at ? `마지막 수집 ${CFG.last_run_at.replace('T', ' ').slice(0, 16)} UTC` : '수집 기록 없음';
+    if (SNAP) {
+      ['#from', '#to', '#apply'].forEach(s => $(s).classList.add('hidden')); $('#range').querySelector('span').classList.add('hidden');
+      $('#lastRun').textContent += ` · 스냅샷 ${SNAP.generated_at.replace('T', ' ').slice(0, 16)} UTC`;
+    }
+    if (!dates.max) { showErr('아직 수집된 데이터가 없습니다.\n데모로 틀을 확인: python scripts/run_all.py --mode demo --days 60\n실데이터: 채널 연결 탭 → secrets.env 채우기 → python scripts/run_all.py --mode live --days 14'); return; }
+    setPreset(14); await loadAll();
+    const h = location.hash.slice(1); if (TABS.includes(h) && h !== 'ops') showTab(h);
+  } catch (e) { showErr(`초기화 실패: ${e.message}`); }
+})();
+</script>
+</body>
+</html>

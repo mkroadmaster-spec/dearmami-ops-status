@@ -1,0 +1,62 @@
+name: cafe24 token fast
+
+# 인가코드 → 토큰 교환을 stdlib 만으로 즉시 수행(checkout/pip 없음, 실측 2초).
+# 토큰은 DB(app_kv)에 저장되어 이후 일일 수집이 자동 회전·보존한다.
+on:
+  workflow_dispatch:
+    inputs:
+      code:
+        description: "승인 후 주소창의 code= 값"
+        required: true
+      redirect_uri:
+        description: "authorize 때와 동일"
+        required: true
+        default: "https://localhost"
+
+jobs:
+  exchange:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CAFE24_MALL_ID: ${{ secrets.CAFE24_MALL_ID }}
+      CAFE24_CLIENT_ID: ${{ secrets.CAFE24_CLIENT_ID }}
+      CAFE24_CLIENT_SECRET: ${{ secrets.CAFE24_CLIENT_SECRET }}
+    steps:
+      - name: 교환 (즉시)
+        run: |
+          python3 - <<'PY'
+          import os, json, base64, urllib.request, urllib.parse
+          mall, cid, sec = os.environ["CAFE24_MALL_ID"], os.environ["CAFE24_CLIENT_ID"], os.environ["CAFE24_CLIENT_SECRET"]
+          data = urllib.parse.urlencode({"grant_type": "authorization_code", "code": "${{ github.event.inputs.code }}",
+                                         "redirect_uri": "${{ github.event.inputs.redirect_uri }}"}).encode()
+          req = urllib.request.Request(f"https://{mall}.cafe24api.com/api/v2/oauth/token", data=data, headers={
+              "Authorization": "Basic " + base64.b64encode(f"{cid}:{sec}".encode()).decode(),
+              "Content-Type": "application/x-www-form-urlencoded"})
+          try:
+              tok = json.load(urllib.request.urlopen(req, timeout=20))
+          except urllib.error.HTTPError as e:
+              print("::error::교환 실패", e.code, e.read().decode()[:300]); raise SystemExit(1)
+          scopes = tok.get("scopes") or tok.get("scope") or []
+          scopes = ",".join(scopes) if isinstance(scopes, list) else str(scopes)
+          need = ["mall.read_order","mall.read_customer","mall.read_community","mall.read_product","mall.read_category","mall.read_application","mall.read_analytics"]
+          miss = [s for s in need if s not in scopes]
+          print("부여 scope:", scopes)
+          if miss: print("::warning::누락 scope:", ",".join(miss), "— 해당 지표가 빈 값으로 보입니다. 앱 권한 7개 체크 후 재인증")
+          with open("tok.json", "w") as f: json.dump(tok, f)
+          PY
+      - name: DB 저장
+        run: |
+          pip install -q "psycopg[binary]"
+          python3 - <<'PY'
+          import os, json, time, psycopg
+          tok = json.load(open("tok.json"))
+          scopes = tok.get("scopes") or tok.get("scope") or []
+          scopes = ",".join(scopes) if isinstance(scopes, list) else str(scopes)
+          rows = {"cafe24_access_token": tok["access_token"], "cafe24_refresh_token": tok.get("refresh_token",""),
+                  "cafe24_token_scopes": scopes, "cafe24_access_expires_at": str(int(time.time()) + int(tok.get("expires_in", 7200)) - 300)}
+          with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as c:
+              c.execute("CREATE TABLE IF NOT EXISTS app_kv (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)")
+              for k, v in rows.items():
+                  c.execute("INSERT INTO app_kv (key,value,updated_at) VALUES (%s,%s,now()::text) ON CONFLICT (key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", (k, v))
+          print("✓ app_kv 저장 완료 → 'ops daily collect' 를 days=14 로 실행하세요")
+          PY
