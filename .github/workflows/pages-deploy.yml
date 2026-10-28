@@ -1,0 +1,63 @@
+name: pages deploy (dashboard)
+
+# 정적 대시보드를 GitHub Pages 로 배포 → https://<owner>.github.io/<repo>/
+# - DATABASE_URL Secret 이 있으면 실데이터(Neon) 스냅샷, 없으면 데모 75일
+# - DASHBOARD_PASSWORD Secret 이 있으면 비밀번호 암호화(없으면 누구나 열람 가능 → 경고)
+# 사전 설정: Settings → Pages → Source = GitHub Actions (무료 플랜은 Public 저장소만)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "40 22 * * *"      # 07:40 KST — 일일 수집(07:00) 직후 갱신
+  push:
+    branches: [main]
+    paths: [dashboard/**, scripts/export_static.py, .github/workflows/pages-deploy.yml]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: 데이터 준비
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL 없음 → 데모 데이터로 빌드"; CAFE24_OPS_MODE=demo python scripts/run_all.py --mode demo --days 75
+          else
+            echo "Neon 실데이터로 빌드"
+          fi
+          [ -z "$DASHBOARD_PASSWORD" ] && echo "::warning::DASHBOARD_PASSWORD Secret 이 없어 비밀번호 없이 공개됩니다" || true
+      - name: 정적 페이지 생성
+        run: |
+          mkdir -p site
+          python scripts/export_static.py --out site/index.html
+          cp dashboard/vendor/chart.umd.js site/ 2>/dev/null || true
+          touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

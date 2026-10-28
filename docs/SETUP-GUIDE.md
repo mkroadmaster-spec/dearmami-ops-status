@@ -162,6 +162,14 @@ DASHBOARD_URL=https://<서비스명>.onrender.com     # 또는 아티팩트 링�
 
 ---
 
+## STEP 9-A — 공개 웹 주소 (GitHub Pages, 서버 없이 · 5분)
+
+`.github/workflows/pages-deploy.yml` 이 정적 대시보드(비밀번호 암호화)를 `https://<owner>.github.io/<repo>/` 로 매일 07:40 KST 배포한다.
+1. 저장소 Settings → General → Danger Zone → **Change visibility → Public** (무료 플랜은 Public 만 Pages 가능. 코드에 비밀값 없음, 데이터는 암호화)
+2. Settings → **Pages** → Build and deployment → Source = **GitHub Actions**
+3. Settings → Secrets and variables → Actions → Secrets 에 `DASHBOARD_PASSWORD` 등록 (없으면 비밀번호 없이 공개)
+4. Actions → **pages deploy (dashboard)** → Run workflow → 1~2분 뒤 주소 생성. `DATABASE_URL` 이 있으면 실데이터, 없으면 데모.
+
 ## STEP 9 — 무인 자동화 (매일 07:00 KST 자동 수집 + 공개 URL)
 
 로컬 SQLite 는 내 PC 에서만 보인다. 무료 스택으로 영속화·공개 (상세: `DEPLOY-FREE.md`, `GITHUB-ACTIONS.md`):
