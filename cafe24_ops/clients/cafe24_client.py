@@ -178,6 +178,9 @@ class Cafe24Client:
     def products(self, limit: int = 100, offset: int = 0, **extra) -> list[dict[str, Any]]:
         return self.get("/admin/products", {"limit": limit, "offset": offset, **extra}).get("products", [])
 
+    def products_count(self, **params) -> int:
+        return int(self.get("/admin/products/count", params).get("count", 0))
+
     def boards_articles_count(self, board_no: int, start_date: str, end_date: str) -> int:
         """후기 등 게시판 글 수 (mall.read_community)."""
         data = self.get(f"/admin/boards/{board_no}/articles/count",

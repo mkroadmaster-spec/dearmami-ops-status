@@ -43,6 +43,15 @@ def _range(date_from: str | None, date_to: str | None) -> tuple[str, str]:
 
 F = Query(None, alias="from")
 T = Query(None, alias="to")
+CF = Query(None, alias="cmp_from")
+CT = Query(None, alias="cmp_to")
+
+
+def _cmp(f: str, t: str, cf: str | None, ct: str | None) -> tuple[str, str]:
+    """비교기간: 지정 없으면 직전 동일 길이."""
+    if cf and ct and cf <= ct:
+        return cf, ct
+    return previous_range(f, t)
 
 
 @app.get("/health")
@@ -77,12 +86,16 @@ def api_channels() -> list[dict[str, Any]]:
 
 
 @app.get("/api/summary")
-def api_summary(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_summary(date_from: str | None = F, date_to: str | None = T, cf: str | None = CF, ct: str | None = CT) -> dict[str, Any]:
     f, t = _range(date_from, date_to)
-    pf, pt = previous_range(f, t)
+    pf, pt = _cmp(f, t, cf, ct)
     s = store()
     cur, prev = sum_range(s.kpi_range(f, t)), sum_range(s.kpi_range(pf, pt))
-    return {"range": {"from": f, "to": t}, "prev_range": {"from": pf, "to": pt}, "cur": cur, "prev": prev, "compare": compare(cur, prev)}
+    # 누적 매출 vs 목표 페이스 (월 목표 → 일할)
+    target = float((config.metrics().get("targets") or {}).get("monthly_sales") or 0)
+    daily_target = target / 30 if target else None
+    return {"range": {"from": f, "to": t}, "prev_range": {"from": pf, "to": pt}, "cur": cur, "prev": prev, "compare": compare(cur, prev),
+            "target": {"monthly_sales": target, "daily": daily_target}}
 
 
 @app.get("/api/period-comparison")
@@ -113,22 +126,26 @@ def api_breakdown(date_from: str | None = F, date_to: str | None = T) -> dict[st
 
 
 @app.get("/api/shop/analytics")
-def api_shop_analytics(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_shop_analytics(date_from: str | None = F, date_to: str | None = T, cf: str | None = CF, ct: str | None = CT) -> dict[str, Any]:
     f, t = _range(date_from, date_to)
-    return breakdown.shop_analytics(store(), f, t)
+    pf, pt = _cmp(f, t, cf, ct)
+    return breakdown.shop_analytics(store(), f, t, pf, pt)
 
 
 @app.get("/api/ads/channels")
-def api_ads_channels(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_ads_channels(date_from: str | None = F, date_to: str | None = T, cf: str | None = CF, ct: str | None = CT) -> dict[str, Any]:
     f, t = _range(date_from, date_to)
-    pf, pt = previous_range(f, t)
+    pf, pt = _cmp(f, t, cf, ct)
     s = store()
     cur = breakdown.ads_by_channel(s, f, t)
     prev = {r["channel"]: r for r in breakdown.ads_by_channel(s, pf, pt)}
+    total = sum((r["ad_cost"] or 0) for r in cur) or 1
     for r in cur:
         p = prev.get(r["channel"], {})
         r["prev_ad_cost"], r["prev_roas"], r["prev_ad_conversions"] = p.get("ad_cost"), p.get("roas"), p.get("ad_conversions")
+        r["budget_share"] = (r["ad_cost"] or 0) / total * 100
     return {"range": {"from": f, "to": t}, "prev_range": {"from": pf, "to": pt}, "channels": cur,
+            "detail": breakdown.channel_detail(s, f, t, pf, pt),
             "trend": breakdown.ads_trend(s, f, t, "ad_cost"), "conv_trend": breakdown.ads_trend(s, f, t, "conversions")}
 
 
@@ -140,13 +157,24 @@ def api_ads_keywords(date_from: str | None = F, date_to: str | None = T, channel
         return {"range": {"from": f, "to": t}, "rows": breakdown.place_report(store(), f, t)}
     if sort not in ("ad_cost", "ad_clicks", "ad_impressions", "ad_conversions", "roas", "ctr"):
         sort = "ad_cost"
-    return {"range": {"from": f, "to": t}, "rows": breakdown.keyword_report(store(), f, t, sort=sort)}
+    rows = breakdown.keyword_report(store(), f, t, sort=sort, top=300)
+    cost = sum(r["ad_cost"] or 0 for r in rows); impr = sum(r["ad_impressions"] or 0 for r in rows); clicks = sum(r["ad_clicks"] or 0 for r in rows)
+    return {"range": {"from": f, "to": t}, "rows": rows,
+            "kpi": {"keywords": len(rows), "ad_cost": cost, "ad_impressions": impr, "ad_clicks": clicks,
+                    "ctr": clicks / impr * 100 if impr else None, "cpc": cost / clicks if clicks else None}}
 
 
 @app.get("/api/creatives/overview")
 def api_creatives(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
     f, t = _range(date_from, date_to)
-    return {"range": {"from": f, "to": t}, "rows": breakdown.creatives_overview(store(), f, t)}
+    rows = breakdown.creatives_overview(store(), f, t)
+    cost = sum(r["ad_cost"] or 0 for r in rows); conv = sum(r["ad_conversions"] or 0 for r in rows)
+    clicks = sum(r["ad_clicks"] or 0 for r in rows); impr = sum(r["ad_impressions"] or 0 for r in rows)
+    best = max(rows, key=lambda r: (r["ad_conversions"] or 0, r["roas"] or 0), default=None)
+    return {"range": {"from": f, "to": t}, "rows": rows,
+            "kpi": {"live": len(rows), "ad_cost": cost, "ad_conversions": conv, "cpa": cost / conv if conv else None,
+                    "ctr": clicks / impr * 100 if impr else None, "cvr": conv / clicks * 100 if clicks else None,
+                    "best": {"ad_name": best["ad_name"], "roas": best["roas"], "ad_conversions": best["ad_conversions"]} if best else None}}
 
 
 @app.get("/api/creatives/trend")
@@ -156,10 +184,17 @@ def api_creatives_trend(date_from: str | None = F, date_to: str | None = T) -> d
 
 
 @app.get("/api/ga4/site")
-def api_ga4_site(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_ga4_site(date_from: str | None = F, date_to: str | None = T, cf: str | None = CF, ct: str | None = CT) -> dict[str, Any]:
     f, t = _range(date_from, date_to)
+    pf, pt = _cmp(f, t, cf, ct)
     s = store()
-    return {**breakdown.ga4_site(s, f, t), "channels": breakdown.ga4_channels(s, f, t), "pages": breakdown.ga4_pages(s, f, t)}
+    return {**breakdown.ga4_site(s, f, t, pf, pt), "channels": breakdown.ga4_channels(s, f, t), "pages": breakdown.ga4_pages(s, f, t),
+            "funnel": breakdown.ga4_funnel(s, f, t)}
+
+
+@app.get("/api/competitors/directory")
+def api_competitors_directory() -> list[dict[str, Any]]:
+    return breakdown.competitor_directory()
 
 
 @app.get("/api/competitors/trend")

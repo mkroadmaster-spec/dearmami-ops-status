@@ -3,10 +3,11 @@ client_id: dearmami
 brand: "디어마미"
 site_url: https://dearmami.co.kr
 timezone: Asia/Seoul
+lead_gen: false               # true = 리드젠(상담·문의형): 전환=결과(등록/리드), ROAS 대신 CPA/CVR 중심
 
 shop:
-  platform: cafe24            # cafe24 | none (자사몰 없으면 none → 카페24 수집기 자동 스킵)
-  mall_id: ""            # 카페24 몰 아이디 (https://<여기>.cafe24.com). 비우면 환경변수 CAFE24_MALL_ID
+  platform: cafe24            # cafe24 | none  ← TODO 담당자 확인: 어드민 주소가 https://<몰아이디>.cafe24.com 이면 cafe24
+  mall_id: ""                 # TODO 카페24 몰 아이디 (비우면 환경변수 CAFE24_MALL_ID 사용)
   api_version: "2025-06-01"
 
 ads:                          # 자격증명 없는 채널은 자동 스킵
@@ -19,7 +20,20 @@ ads:                          # 자격증명 없는 채널은 자동 스킵
   - channel: google
     customer_id: ""
 
-competitors:                  # 네이버 데이터랩 트렌드 추적 브랜드명 (최대 5개)
-  - "디어마미"
-  - "경쟁사A"
-  - "경쟁사B"
+# 경쟁사 모니터링 — name 은 네이버 데이터랩 트렌드 키워드(최대 5), 나머지는 '지정 현황 딥링크'용 (비우면 자동 생성)
+competitors:
+  - name: "디어마미"
+    url: https://dearmami.co.kr
+    insta: ""
+    domain: dearmami.co.kr
+    fb_query: "디어마미"
+  - name: "경쟁사A"            # TODO 업체와 합의
+    url: ""
+    insta: ""
+    domain: ""
+    fb_query: ""
+  - name: "경쟁사B"
+    url: ""
+    insta: ""
+    domain: ""
+    fb_query: ""

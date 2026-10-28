@@ -52,8 +52,22 @@ def sources() -> dict[str, Any]:
     shop.setdefault("api_version", "2025-06-01")
     cfg.setdefault("brand", "내 쇼핑몰")
     cfg.setdefault("ads", [])
-    cfg.setdefault("competitors", [])
+    comps = []
+    for c in cfg.get("competitors") or []:
+        if isinstance(c, str):
+            c = {"name": c}
+        name = str(c.get("name", "")).strip()
+        if not name:
+            continue
+        domain = c.get("domain") or (c.get("url", "").replace("https://", "").replace("http://", "").split("/")[0] if c.get("url") else "")
+        comps.append({"name": name, "url": c.get("url") or (f"https://{domain}" if domain else ""), "insta": c.get("insta") or "",
+                      "domain": domain, "fb_query": c.get("fb_query") or name})
+    cfg["competitors"] = comps
     return cfg
+
+
+def competitor_names() -> list[str]:
+    return [c["name"] for c in sources()["competitors"]][:5]
 
 
 def metrics() -> dict[str, Any]:

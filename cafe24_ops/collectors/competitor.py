@@ -7,7 +7,7 @@ from .base import Fact, fact
 
 
 def collect(store, d: str) -> list[Fact]:
-    brands = [str(b) for b in config.sources().get("competitors") or []]
+    brands = config.competitor_names()
     if not brands:
         return []
     out: list[Fact] = []

@@ -44,7 +44,9 @@ ads:                          # 자격증명 없는 채널은 자동 스킵
   - channel: google
     customer_id: ""
 
-competitors:                  # 네이버 데이터랩 트렌드 추적 브랜드명 (최대 5개)
+lead_gen: false               # true = 리드젠(상담·문의형): 전환=결과, CPA/CVR 중심
+
+competitors:                  # name=데이터랩 키워드(최대 5), url/insta/domain/fb_query=경쟁사 모니터링 딥링크
 {competitors}
 """
 
@@ -98,7 +100,7 @@ def main() -> int:
     comps = [c.strip() for c in a.competitors.split(",") if c.strip()] or [a.brand]
     (ROOT / "config" / "sources.yaml").write_text(SOURCES_TMPL.format(
         client_id=cid, brand=a.brand, site=a.site or "", platform=a.platform, mall_id=a.mall_id,
-        competitors="\n".join(f'  - "{c}"' for c in comps[:5])), encoding="utf-8")
+        competitors="\n".join(f'  - name: "{c}"\n    url: ""\n    insta: ""\n    domain: ""\n    fb_query: ""' for c in comps[:5])), encoding="utf-8")
     print(f"✓ config/sources.yaml → {a.brand} ({cid})")
 
     if a.categories:

@@ -23,6 +23,10 @@ summary_cards:
     label: ROAS
     unit: pct
 
+# 목표 (카페24 어드민 탭 '누적 매출 vs 목표 페이스')
+targets:
+  monthly_sales: 90000000      # 월 매출 목표(원) ← 업체와 합의. 0 이면 목표선 미표시
+
 # 방문자 정의 차이 안내 (카페24 방문 vs GA4 사용자 — 숫자가 다른 게 정상)
 visitor_sources:
   primary: ga4

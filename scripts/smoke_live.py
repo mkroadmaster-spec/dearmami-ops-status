@@ -60,7 +60,7 @@ def main() -> int:
     else:
         print("  - 네이버SA: 미설정 (STEP 4)")
     if naver_datalab.is_configured():
-        brands = [str(b) for b in config.sources().get("competitors") or []][:1] or ["테스트"]
+        brands = config.competitor_names()[:1] or ["테스트"]
         report("네이버 데이터랩", lambda: f"groups={len(naver_datalab.NaverDataLab().trend(brands, d, d))}")
     else:
         print("  - 네이버 오픈API: 미설정 (STEP 5)")

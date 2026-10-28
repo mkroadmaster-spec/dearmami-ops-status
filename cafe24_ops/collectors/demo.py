@@ -41,7 +41,7 @@ def keywords() -> list[str]:
 
 
 def competitors() -> list[str]:
-    return [str(b) for b in config.sources().get("competitors") or ["경쟁사A", "경쟁사B"]][:5]
+    return config.competitor_names() or ["경쟁사A", "경쟁사B"]
 
 
 def _rng(d: str, salt: str) -> random.Random:
@@ -76,6 +76,9 @@ def cafe24(d: str) -> list[Fact]:
         fact(d, "cafe24", "pc_orders", orders - round(orders * mobile_ratio)),
         fact(d, "cafe24", "canceled_orders", int(r.uniform(0, 4))),
         fact(d, "cafe24", "reviews", int(r.uniform(2, 9))),
+        fact(d, "cafe24", "new_sales", gross * new_ratio * r.uniform(0.9, 1.1)),
+        fact(d, "cafe24", "returning_sales", gross * (1 - new_ratio * r.uniform(0.9, 1.1))),
+        fact(d, "cafe24", "soldout_products", 38 + int(r.uniform(-3, 4))),
     ]
     prods = products()
     weights = [r.uniform(0.5, 1.5) for _ in prods]
@@ -150,6 +153,12 @@ def ga4(d: str) -> list[Fact]:
                     ("/product/detail.html?product_no=1003", 0.07), ("/board/review/list.html", 0.05), ("/order/basket.html", 0.05), ("/member/login.html", 0.04)):
         pv = int(users * 3.8 * w * r.uniform(0.8, 1.2))
         out += [fact(d, "ga4_page", "pageviews", pv, path=path), fact(d, "ga4_page", "users", int(pv * 0.6), path=path)]
+    # 구매 퍼널 이벤트 — '상품 탐색' 단계가 병목이 되도록
+    pv_total = int(users * 3.8)
+    steps = [("page_view", pv_total), ("view_item", int(pv_total * r.uniform(0.28, 0.34))), ("click_buy_now", int(pv_total * r.uniform(0.012, 0.02))),
+             ("add_to_cart", int(pv_total * r.uniform(0.035, 0.05))), ("view_cart", int(pv_total * r.uniform(0.025, 0.035))),
+             ("begin_checkout", int(pv_total * r.uniform(0.016, 0.022))), ("purchase", int(users * r.uniform(0.018, 0.028)))]
+    out += [fact(d, "ga4_event", "event_count", n, event=k) for k, n in steps]
     return out
 
 

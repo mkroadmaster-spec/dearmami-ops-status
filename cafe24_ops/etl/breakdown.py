@@ -64,6 +64,31 @@ def ads_by_channel(store, f: str, t: str) -> list[dict[str, Any]]:
     return rows
 
 
+def channel_detail(store, f: str, t: str, pf: str, pt: str, trend_days: int = 30) -> list[dict[str, Any]]:
+    """채널별 상세·흐름 — 선택 vs 비교기간 6지표 + 최근 N일 광고비·ROAS 일별."""
+    cur = {r["channel"]: r for r in ads_by_channel(store, f, t)}
+    prev = {r["channel"]: r for r in ads_by_channel(store, pf, pt)}
+    tf = _date.fromisoformat(t)
+    tr_from = (tf - timedelta(days=trend_days - 1)).isoformat()
+    cost_tr = {r["date"]: r for r in ads_trend(store, tr_from, t, "ad_cost")}
+    rev_tr = {r["date"]: r for r in ads_trend(store, tr_from, t, "ad_revenue")}
+    dates = sorted(set(cost_tr) | set(rev_tr))
+    total = sum((r["ad_cost"] or 0) for r in cur.values()) or 1
+    out = []
+    for ch, r in cur.items():
+        p = prev.get(ch, {})
+        def pct(k: str) -> float | None:
+            a, b = r.get(k), p.get(k)
+            return ((a - b) / b * 100) if (a is not None and b) else None
+        costs = [cost_tr.get(d, {}).get(ch, 0) for d in dates]
+        revs = [rev_tr.get(d, {}).get(ch, 0) for d in dates]
+        out.append({"channel": ch, "label": r["label"], "budget_share": (r["ad_cost"] or 0) / total * 100,
+                    "metrics": {k: {"cur": r.get(k), "prev": p.get(k), "pct": pct(k)} for k in ("ad_cost", "ad_revenue", "roas", "ad_impressions", "ad_clicks", "cvr", "ctr", "cpc", "ad_conversions", "cpa")},
+                    "trend": {"dates": dates, "ad_cost": costs, "roas": [(rv / c * 100) if c else None for c, rv in zip(costs, revs)]}})
+    out.sort(key=lambda x: -(x["metrics"]["ad_cost"]["cur"] or 0))
+    return out
+
+
 def ads_trend(store, f: str, t: str, metric: str = "ad_cost") -> list[dict[str, Any]]:
     by_day: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for x in store.facts(f, t, source="ads", metric=metric):
@@ -127,10 +152,24 @@ def keywords(store, f: str, t: str, top: int = 15) -> list[dict[str, Any]]:
     return _top_dim(store, f, t, "cafe24_analytics", "keyword_visits", "keyword", top, "visits")
 
 
-def shop_analytics(store, f: str, t: str) -> dict[str, Any]:
-    """접속통계 섹션 9블록 + 비교기간 자동 계산."""
+def _with_prev(cur: list[dict[str, Any]], prev: list[dict[str, Any]], key: str, val: str) -> list[dict[str, Any]]:
+    """비중·비교기간 대비·신규 플래그 부여."""
+    pm = {r[key]: r[val] for r in prev}
+    total = sum(r[val] for r in cur) or 1
+    for r in cur:
+        p = pm.get(r[key])
+        r["share"] = r[val] / total * 100
+        r["prev"] = p
+        r["pct"] = ((r[val] - p) / p * 100) if p else None
+        r["new"] = p is None
+    return cur
+
+
+def shop_analytics(store, f: str, t: str, pf: str | None = None, pt: str | None = None) -> dict[str, Any]:
+    """접속통계 섹션 9블록 + 비교기간(기본: 직전 동일 길이)."""
     from .aggregate import previous_range
-    pf, pt = previous_range(f, t)
+    if not (pf and pt):
+        pf, pt = previous_range(f, t)
     days = (_date.fromisoformat(t) - _date.fromisoformat(f)).days + 1
     min_views = 50 if days <= 7 else 200
     funnel = cart_funnel(store, f, t, min_views)
@@ -149,8 +188,11 @@ def shop_analytics(store, f: str, t: str) -> dict[str, Any]:
         "visitors": visitors,
         "funnel": funnel, "prev_funnel_totals": prev_funnel["totals"],
         "low_cart_products": [r for r in funnel["rows"] if r["bottleneck"] or r["cannot_add"]][:10],
-        "keywords": keywords(store, f, t), "domains": _top_dim(store, f, t, "cafe24_analytics", "domain_visits", "domain", 10, "visits"),
-        "ad_paths": _top_dim(store, f, t, "cafe24_analytics", "adpath_visits", "ad_channel", 10, "visits"),
+        "keywords": _with_prev(keywords(store, f, t, 20), keywords(store, pf, pt, 200), "keyword", "visits"),
+        "domains": _with_prev(_top_dim(store, f, t, "cafe24_analytics", "domain_visits", "domain", 12, "visits"),
+                              _top_dim(store, pf, pt, "cafe24_analytics", "domain_visits", "domain", 100, "visits"), "domain", "visits"),
+        "ad_paths": _with_prev(_top_dim(store, f, t, "cafe24_analytics", "adpath_visits", "ad_channel", 10, "visits"),
+                               _top_dim(store, pf, pt, "cafe24_analytics", "adpath_visits", "ad_channel", 50, "visits"), "ad_channel", "visits"),
         "pages": _top_dim(store, f, t, "cafe24_analytics", "page_views", "path", 10, "views"),
         "members": member_rows,
         "product_sales": sorted([{"product_no": k[0], "product": k[1], "orders": v.get("product_orders", 0), "qty": v.get("product_qty", 0)}
@@ -160,9 +202,10 @@ def shop_analytics(store, f: str, t: str) -> dict[str, Any]:
 
 
 # ---------------- GA4 사이트 분석 ----------------
-def ga4_site(store, f: str, t: str) -> dict[str, Any]:
+def ga4_site(store, f: str, t: str, pf: str | None = None, pt: str | None = None) -> dict[str, Any]:
     from .aggregate import previous_range, sum_range
-    pf, pt = previous_range(f, t)
+    if not (pf and pt):
+        pf, pt = previous_range(f, t)
     cur, prev = sum_range(store.kpi_range(f, t)), sum_range(store.kpi_range(pf, pt))
     keys = ("visitors", "sessions", "pageviews", "avg_session_sec", "new_visitors", "returning_visitors", "ga4_conversions", "revisit_rate")
     c = compare({k: cur.get(k) for k in keys}, {k: prev.get(k) for k in keys})
@@ -179,6 +222,35 @@ def ga4_channels(store, f: str, t: str, top: int = 15) -> list[dict[str, Any]]:
                      "users": v.get("users", 0), "conversions": conv, "cvr": conv / s * 100 if s else None})
     rows.sort(key=lambda r: -r["sessions"])
     return rows[:top]
+
+
+def ga4_funnel(store, f: str, t: str) -> dict[str, Any]:
+    """구매 퍼널 · 단계별 이탈 (GA4 이벤트). 병목 = 직전 단계 대비 통과율이 가장 낮은 단계.
+    GA4 는 개별 사용자 경로가 아니라 단계별 이벤트 건수 감소로만 본다 (BigQuery 없이는 A→B→C 추적 불가)."""
+    from ..clients.ga4 import FUNNEL_STEPS
+    cnt: dict[str, float] = defaultdict(float)
+    for x in store.facts(f, t, source="ga4_event", metric="event_count"):
+        cnt[x["dims"].get("event", "")] += float(x["value"] or 0)
+    if not cnt:
+        return {"available": False, "steps": [], "bottleneck": None}
+    steps = []
+    first = cnt.get(FUNNEL_STEPS[0][0], 0) or 0
+    prev_n = None
+    branch = {"click_buy_now"}  # 분기 경로(장바구니를 거치지 않음) — 병목 판정 제외
+    for key, label in FUNNEL_STEPS:
+        n = cnt.get(key, 0)
+        step_rate = (n / prev_n * 100) if prev_n else None
+        steps.append({"event": key, "label": label, "count": n, "step_rate": step_rate, "branch": key in branch,
+                      "first_rate": (n / first * 100) if first else None,
+                      "drop": (prev_n - n) if (prev_n is not None and key not in branch) else None})
+        if key not in branch:
+            prev_n = n if n else prev_n
+    cands = [s for s in steps[1:] if s["step_rate"] is not None and s["count"] > 0 and not s["branch"]]
+    bott = min(cands, key=lambda s: s["step_rate"]) if cands else None
+    zero = [s for s in steps[1:] if s["count"] == 0]
+    note = (f"'{bott['label']}' 단계 통과율이 가장 낮습니다 (직전 단계 대비 {bott['step_rate']:.1f}%)." if bott else "") + \
+           (f" {', '.join(s['label'] for s in zero)} 이벤트는 0건 — GA4 이벤트 미설치 가능성." if zero else "")
+    return {"available": True, "steps": steps, "bottleneck": bott["label"] if bott else None, "note": note}
 
 
 def ga4_conversions_by_channel(store, f: str, t: str) -> dict[str, float]:
@@ -266,6 +338,19 @@ def place_report(store, f: str, t: str) -> list[dict[str, Any]]:
 
 
 # ---------------- 경쟁사 ----------------
+def competitor_directory() -> list[dict[str, Any]]:
+    """지정 현황 딥링크 — 홈페이지 · 인스타 · FB 광고라이브러리(active) · 구글 광고 투명성."""
+    from urllib.parse import quote
+    from .. import config
+    out = []
+    for c in config.sources()["competitors"]:
+        q = quote(c.get("fb_query") or c["name"])
+        out.append({"name": c["name"], "url": c.get("url") or "", "insta": (f"https://www.instagram.com/{c['insta'].lstrip('@')}/" if c.get("insta") else ""),
+                    "fb_ads": f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=KR&q={q}&search_type=keyword_unordered",
+                    "google_ads": (f"https://adstransparency.google.com/?region=KR&domain={c['domain']}" if c.get("domain") else f"https://adstransparency.google.com/?region=KR&q={q}")})
+    return out
+
+
 def competitor_trend(store, f: str, t: str) -> dict[str, Any]:
     by_brand: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for x in store.facts(f, t, source="competitor", metric="trend_ratio"):

@@ -25,7 +25,29 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from api.main import app  # noqa: E402
 
-PRESETS = (7, 14, 30)
+PRESETS = (1, 7, 14, 30)
+CMPS = ("prev", "week", "month", "year")
+
+
+def _add_months(d: _date, n: int) -> _date:
+    y, m = d.year, d.month + n
+    while m < 1:
+        m += 12; y -= 1
+    while m > 12:
+        m -= 12; y += 1
+    import calendar
+    return d.replace(year=y, month=m, day=min(d.day, calendar.monthrange(y, m)[1]))
+
+
+def _cmp_range(f: _date, t: _date, mode: str) -> tuple[_date, _date]:
+    n = (t - f).days + 1
+    if mode == "week":
+        return f - timedelta(days=7), t - timedelta(days=7)
+    if mode == "month":
+        return _add_months(f, -1), _add_months(t, -1)
+    if mode == "year":
+        return _add_months(f, -12), _add_months(t, -12)
+    return f - timedelta(days=n), f - timedelta(days=1)
 
 
 def build_snapshot() -> dict:
@@ -45,11 +67,15 @@ def build_snapshot() -> dict:
         "config": get("/api/config"), "dates": dates, "channels": get("/api/channels"),
         "logs": get("/api/logs?limit=50"), "digest": get(f"/api/digest?date={dates['max']}"),
         "period_comparison": get(f"/api/period-comparison?date={dates['max']}"),
-        "report_weekly": get("/api/report/weekly"), "report_monthly": get("/api/report/monthly"), "ranges": {},
+        "report_weekly": get("/api/report/weekly"), "report_monthly": get("/api/report/monthly"),
+        "competitor_directory": get("/api/competitors/directory"), "ranges": {},
     }
     for n in PRESETS:
-        q = f"from={(to - timedelta(days=n - 1)).isoformat()}&to={to.isoformat()}"
-        snap["ranges"][str(n)] = {
+      for mode in CMPS:
+        f = to - timedelta(days=n - 1)
+        cf, ct = _cmp_range(f, to, mode)
+        q = f"from={f.isoformat()}&to={to.isoformat()}&cmp_from={cf.isoformat()}&cmp_to={ct.isoformat()}"
+        snap["ranges"][f"{n}|{mode}"] = {
             "summary": get(f"/api/summary?{q}"), "daily": get(f"/api/daily?{q}"), "breakdown": get(f"/api/breakdown?{q}"),
             "shop": get(f"/api/shop/analytics?{q}"), "ads": get(f"/api/ads/channels?{q}"),
             "keywords": get(f"/api/ads/keywords?{q}&channel=naver_powerlink"), "place": get(f"/api/ads/keywords?{q}&channel=naver_place"),

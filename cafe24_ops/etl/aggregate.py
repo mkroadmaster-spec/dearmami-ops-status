@@ -5,7 +5,7 @@ from datetime import date as _date, timedelta
 from typing import Any
 
 ADDITIVE = (
-    "gross_sales", "orders", "new_orders", "returning_orders", "mobile_sales", "pc_sales",
+    "gross_sales", "orders", "new_orders", "returning_orders", "mobile_sales", "pc_sales", "new_sales", "returning_sales",
     "mobile_orders", "pc_orders", "canceled_orders", "reviews",
     "visitors", "new_visitors", "returning_visitors", "sessions", "pageviews", "ga4_conversions",
     "cafe24_visits", "cafe24_first_visits", "cafe24_revisits",
@@ -35,6 +35,8 @@ def derive(k: dict[str, float | None]) -> dict[str, float | None]:
     k["cpa"] = _div(k.get("ad_cost"), k.get("ad_conversions"))
     k["cvr"] = _div(k.get("ad_conversions"), k.get("ad_clicks"), pct=True)
     k["new_order_share"] = _div(k.get("new_orders"), k.get("orders"), pct=True)
+    k["returning_sales_share"] = _div(k.get("returning_sales"), k.get("gross_sales"), pct=True)
+    k["organic_sales"] = None if k.get("gross_sales") is None else max(0.0, float(k["gross_sales"]) - float(k.get("ad_revenue") or 0))
     return k
 
 
@@ -86,6 +88,10 @@ def sum_range(kpi_by_date: dict[str, dict[str, float | None]]) -> dict[str, floa
             if day.get(m) is not None:
                 tot[m] = (tot.get(m) or 0) + float(day[m])
     tot["days"] = len(kpi_by_date)
+    if kpi_by_date:  # 스냅샷성 지표는 마지막 날 값
+        last = kpi_by_date[max(kpi_by_date)]
+        if last.get("soldout_products") is not None:
+            tot["soldout_products"] = last["soldout_products"]
     return derive(tot)
 
 

@@ -94,6 +94,21 @@ class GA4Client:
         return [{"path": r["pagePath"], "pageviews": r["screenPageViews"], "users": r["totalUsers"]} for r in rows]
 
 
+    # 구매 퍼널 이벤트 (유입·구매 경로 탭): 페이지 조회 → 상품 탐색 → 바로구매 클릭 → 장바구니 담기 → 장바구니 확인 → 구매하기 클릭 → 결제 완료
+    FUNNEL_EVENTS = ("page_view", "view_item", "click_buy_now", "add_to_cart", "view_cart", "begin_checkout", "purchase")
+
+    def event_counts(self, d: str) -> dict[str, float]:
+        rows = self._parse(self.run_report({"dateRanges": [{"startDate": d, "endDate": d}],
+                                            "dimensions": [{"name": "eventName"}],
+                                            "metrics": [{"name": "eventCount"}], "limit": 200}))
+        return {r["eventName"]: r["eventCount"] for r in rows}
+
+
+FUNNEL_STEPS = [("page_view", "페이지 조회"), ("view_item", "상품 탐색"), ("click_buy_now", "바로구매 클릭"),
+                ("add_to_cart", "장바구니 담기"), ("view_cart", "장바구니 확인"), ("begin_checkout", "구매하기 클릭"),
+                ("purchase", "결제 완료")]
+
+
 # GA4 source/medium → 광고 채널 매핑 (광고 탭 전환수 GA4 대체용)
 def channel_of(source_medium: str) -> str:
     s = source_medium.lower()

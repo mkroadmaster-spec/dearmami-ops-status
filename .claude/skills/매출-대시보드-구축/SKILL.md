@@ -61,15 +61,18 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 - `report_docx.py`: 리포트 데이터 → Word (python-docx). 섹션 번호는 그려지는 섹션만 순서대로.
 - `alerts.py`: 전일·전주·전년, 7일 평균 대비 ±30% 급등락, ROAS<200%, 수집 실패 채널.
 
-## 5. API·화면 (이미 구현) — keek 대시보드와 같은 탭 구성
+## 5. API·화면 (이미 구현) — keek 대시보드 스크린샷 기준으로 동일 구성 (2026-10-28 재구성)
 
 - `api/main.py`: `/health` `/api/config` `/api/dates` `/api/channels` `/api/summary` `/api/period-comparison` `/api/daily` `/api/digest` `/api/breakdown` `/api/shop/analytics` `/api/ads/channels` `/api/ads/keywords(channel,sort)` `/api/creatives/overview|trend` `/api/ga4/site` `/api/competitors/trend` `/api/report/weekly(.docx)(week)` `/api/report/monthly(.docx)(month)` `/api/logs`. 요약은 **선택 기간 합계 + 직전 동일 길이 비교**.
-- `dashboard/index.html` 단일 파일, 5탭(해시 라우팅 `#ops|ads|history|report|channels`):
-  1. **카페24 어드민**: BriefingBanner → RangePicker → SummaryCards → PeriodTable(전일/전주/전년) → SalesChart → NewReturningChart·AdCostChart → Device(바+표) → VisitorDetailCard·SignupTrend(API 미제공 안내) → VisitorChart → CategoryBar → BestTable → **접속통계 섹션 9블록** → DailyTable → PlannedGroups(미연동 지표)
-  2. **광고**: 카드(광고비·전환매출·ROAS·전환·CPA·CVR·CTR·CPC·노출·광고비율; 리드젠이면 `lead_gen: true` 로 결과·CPA 중심) → 채널표(비교기간 증감 + GA4 전환) → 광고비 누적 추이 · 전환(결과) 흐름 → **GA4 사이트 분석**(카드 + 매체별 유입·전환 + 인기 페이지) → 경쟁사 트렌드 → 미연동 채널 안내(크리테오·GFA·브랜드검색 ROAS 과대)
-  3. **광고 히스토리**: Meta 소재(썸네일 카드: 광고비·노출·클릭·CTR·CPC·전환·전환율·CPA·ROAS·빈도·피로도 + 상위 5 CTR 추이) / 네이버 검색(키워드 리포트, 광고비 소진 정렬) / 네이버 플레이스(광고그룹)
-  4. **주간 리포트**: 주간|월간 토글, 이전/다음 이동, Word 다운로드 — 한 장 요약·매체별·구매 퍼널 병목·담기율 낮은 상품·베스트(순위 변동)·고객 구성·유입 검색어·GA4 매체·카테고리
-  5. **채널 연결**(이 구축의 추가 장점): 9개 채널 카드(필요 env 체크·마지막 수집 상태·가이드) + 수집 로그
+- 공통 UI(keek): 네이비 헤더 + **조회일** 선택 → 탭 → **오늘의 브리핑**(이모지 요약 줄 · 한 문장 · 4박스: 핵심지표/7일 평균 급등락/이상치·신규 등장/광고 지표, 접기) → **기간 선택**(어제·최근 7/14/30일·직접 + 비교: 직전 기간·전주/전월/전년 동기간, 선택·비교기간 표시) → 파란 상단선 KPI 카드. 모든 데이터 API 는 `cmp_from/cmp_to` 를 받는다. ROAS 는 `x` 배수 표기.
+- `dashboard/index.html` 단일 파일, 8탭(해시 라우팅 `#ops|ads|history|ga4|comp|weekly|monthly|channels`):
+  1. **카페24 어드민**: KPI 카드 → 핵심 지표 기간 비교(전일/전주/전년) → 일별 매출 추이(+누적 매출 vs 목표 페이스, `metrics.yaml targets.monthly_sales`) → 신규 vs 재구매 매출(누적 영역) · 광고비 vs 비광고 매출 → 디바이스 도넛+상세 → 방문자 상세 타일 · 신규회원(API 미제공) → 방문자 추이(전체/신규/재방문) → 카테고리 TOP10 · 베스트 TOP5 → **접속통계**(상품별 조회→담기→주문(인라인 바), 검색어/도메인/광고채널(비중·비교 대비·신규★), 담기율 경고, 회원/비회원, 페이지뷰) → 일별 운영 데이터(14일) → 세부 구성 칩
+  2. **광고**: KPI(총 광고비·광고 매출·ROAS·노출량·클릭수·전환율·CTR·CPC·매출대비; 리드젠 `lead_gen: true`) → **채널별 예산 비율 바** → 채널별 성과 요약표(+GA4 전환) → **채널별 상세·흐름**(채널마다 6 미니카드 + 최근 30일 광고비 막대·ROAS 선) → 미연동 채널 안내
+  3. **광고 히스토리**: 채널 서브탭. Meta 소재(KPI 6: 라이브 소재·광고비·총 전환·전환당 비용·평균 CTR·전환율 → 상위 5 CTR 추이 → 소재 카드(세로 이미지, 전환·전환율·전환당 비용·CTR·CPC·비용·ROAS·빈도·피로도) 정렬 전환/CTR/CVR/비용) / 네이버 검색(KPI 6 + 키워드 리포트 정렬 광고비/클릭/노출/전환) / 네이버 플레이스(광고그룹)
+  4. **유입·구매 경로(GA4)**: 사이트 KPI 8 → **구매 퍼널·단계별 이탈**(페이지 조회→상품 탐색→바로구매 클릭(분기)→장바구니 담기→장바구니 확인→구매하기 클릭→결제 완료, 직전/첫 단계 대비·이탈, 병목 강조) → 신규 vs 재방문 → 매체별 유입·전환 → 인기 페이지
+  5. **경쟁사 모니터링**: 지정 현황 딥링크(홈페이지·인스타·FB 광고라이브러리 active·구글 광고 투명성, `sources.yaml competitors[]` 객체) → 네이버 데이터랩 트렌드
+  6. **주간 리포트** / 7. **월간 리포트**: 제목 "A주 → B주 성과 비교", 한 문장 요약, 이전/다음, Word — **01** 한 장 요약·계정 전체 **02** 좋아진 것·아쉬운 것(문장) **03** 매체별 비교+해석 **04** 구매 퍼널·단계별 이탈(GA4) **05** 장바구니 담기 퍼널 4타일 **06** 베스트(비중·순위 변동) **07** 고객 구성(신규/재구매 매출·회원/비회원 객단가) **08** 유입 검색어(비중·전주·신규★) **09** 네이버 키워드 흐름+코멘트 **10** 핵심 인사이트 & 다음 전략(규칙 기반 초안 4개)
+  8. **채널 연결**(이 구축의 추가 장점): 11개 채널 카드(필요 env 체크·마지막 수집 상태·가이드) + 수집 로그
 - 차트 규칙(dataviz): 범주색 고정 순서(파랑·주황·초록·노랑·분홍), 막대 ≤24px·상단 4px 라운드, 선 2px, 단일 축, 2개 이상 시리즈만 범례, 다크 모드 토큰.
 - SQLite 는 `check_same_thread=False` + RLock (FastAPI 스레드풀).
 - **완료 기준**: 전 엔드포인트 200 + Playwright 로 5탭 스크린샷(라이트/다크/모바일 400px 가로 넘침 없음, 콘솔 오류 0) + `.docx` 생성.
