@@ -60,6 +60,11 @@ def run_day(store, d: str, mode: str | None = None, skip: set[str] | None = None
 def run_range(store, date_to: str, days: int, mode: str | None = None, skip: set[str] | None = None) -> list[dict[str, Any]]:
     end = _date.fromisoformat(date_to)
     out = []
-    for i in range(days - 1, -1, -1):
+    import sys, time as _t
+    t0 = _t.time()
+    for n, i in enumerate(range(days - 1, -1, -1), 1):
         out.append(run_day(store, (end - timedelta(days=i)).isoformat(), mode, skip))
+        if days > 40 and (n % 30 == 0 or n == days):  # 장기 백필 진행률 (Actions 로그에서 확인)
+            el = _t.time() - t0
+            print(f"[progress] {n}/{days}일 ({out[-1]['date']}) · 경과 {el/60:.0f}분 · 예상 잔여 {el/n*(days-n)/60:.0f}분", flush=True)
     return out
