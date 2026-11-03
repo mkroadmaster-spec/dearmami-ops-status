@@ -32,7 +32,7 @@ timezone: Asia/Seoul
 shop:
   platform: {platform}            # cafe24 | none (자사몰 없으면 none → 카페24 수집기 자동 스킵)
   mall_id: "{mall_id}"            # 카페24 몰 아이디 (https://<여기>.cafe24.com). 비우면 환경변수 CAFE24_MALL_ID
-  api_version: "2025-06-01"
+  api_version: ""             # 비우면 카페24 앱 기본 버전
 
 ads:                          # 자격증명 없는 채널은 자동 스킵
   - channel: meta

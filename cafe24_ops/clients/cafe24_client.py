@@ -123,7 +123,7 @@ class Cafe24Client:
             raise Cafe24AuthError("카페24 토큰 없음 → scripts/cafe24_auth.py 로 최초 발급")
         exp = int(store.kv_get(KV_EXPIRES, "0") or 0)
         return cls(src["mall_id"], config.env("CAFE24_CLIENT_ID"), config.env("CAFE24_CLIENT_SECRET"),
-                   access, refresh, store=store, api_version=src.get("api_version", "2025-06-01"),
+                   access, refresh, store=store, api_version=str(src.get("api_version") or ""),
                    expires_at=exp)
 
     # ---- token -----------------------------------------------------------
@@ -138,9 +138,10 @@ class Cafe24Client:
             save_tokens(self.store, tok)  # 즉시 되쓰기
 
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.access_token}",
-                "Content-Type": "application/json",
-                "X-Cafe24-Api-Version": self.api_version}
+        h = {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
+        if self.api_version:  # 비우면 앱 기본 버전 사용 (지원 종료된 버전을 지정하면 400)
+            h["X-Cafe24-Api-Version"] = self.api_version
+        return h
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         if self.expires_at and time.time() >= self.expires_at:

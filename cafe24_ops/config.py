@@ -49,7 +49,7 @@ def sources() -> dict[str, Any]:
     shop = cfg.setdefault("shop", {})
     shop["mall_id"] = shop.get("mall_id") or env("CAFE24_MALL_ID")
     shop.setdefault("platform", "cafe24")
-    shop.setdefault("api_version", "2025-06-01")
+    shop.setdefault("api_version", "")
     cfg.setdefault("brand", "내 쇼핑몰")
     cfg.setdefault("ads", [])
     comps = []
