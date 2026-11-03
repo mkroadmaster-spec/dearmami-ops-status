@@ -26,6 +26,7 @@ def main() -> int:
     ap.add_argument("--mode", choices=["live", "demo"], default=None, help="기본: CAFE24_OPS_MODE (live)")
     ap.add_argument("--date", default=None, help="수집 종료일 YYYY-MM-DD (기본: KST 어제)")
     ap.add_argument("--days", type=int, default=1, help="종료일 포함 최근 N일")
+    ap.add_argument("--from", dest="date_from", default=None, help="시작일 YYYY-MM-DD (지정 시 --days 무시, 종료일까지 전부)")
     ap.add_argument("--skip", default="", help="건너뛸 소스 콤마 구분 (cafe24,cafe24_analytics,ga4,ads,competitor)")
     ap.add_argument("--reset", action="store_true", help="실행 전 facts/kpi_daily 전체 삭제 (demo→live 전환)")
     ap.add_argument("--notify", action="store_true", help="실패 채널 있으면 Slack 알림")
@@ -35,6 +36,9 @@ def main() -> int:
     if a.mode:
         os.environ["CAFE24_OPS_MODE"] = a.mode
     end = a.date or pipeline.yesterday()
+    if a.date_from:
+        from datetime import date as _d
+        a.days = max(1, (_d.fromisoformat(end) - _d.fromisoformat(a.date_from)).days + 1)
     skip = {s.strip() for s in a.skip.split(",") if s.strip()}
 
     store = Store()
@@ -45,6 +49,17 @@ def main() -> int:
 
     results = pipeline.run_range(store, end, a.days, mode=mode, skip=skip)
     failed: set[str] = set()
+    if a.days > 40:  # 장기 백필은 요약만 (월별 매출 합계 + 실패 건수)
+        from collections import defaultdict
+        by_m: dict[str, float] = defaultdict(float); n_ok: dict[str, int] = defaultdict(int); fails = 0
+        for r in results:
+            by_m[r["date"][:7]] += float(r["kpi"].get("gross_sales") or 0)
+            if r["sources"].get("cafe24", {}).get("status") == "ok": n_ok[r["date"][:7]] += 1
+            for src, st in r["sources"].items():
+                if st["status"] in ("fail", "partial"): failed.add(src); fails += 1
+        for m in sorted(by_m): print(f"  {m}  매출 {by_m[m]:,.0f}  수집일 {n_ok[m]}일")
+        print(f"[run_all] 총 {a.days}일 · 실패/부분실패 {fails}건")
+        results = results[-3:]
     for r in results:
         parts = []
         for src, st in r["sources"].items():

@@ -146,13 +146,24 @@ class Cafe24Client:
         if self.expires_at and time.time() >= self.expires_at:
             self._refresh_now()
         url = f"{base_url(self.mall_id)}{path}"
-        r = self.session.get(url, headers=self._headers(), params=params, timeout=30)
+        r = self._get_retry(url, params)
         if r.status_code == 401:
             self._refresh_now()
-            r = self.session.get(url, headers=self._headers(), params=params, timeout=30)
+            r = self._get_retry(url, params)
         if r.status_code >= 400:
             raise RuntimeError(f"cafe24 GET {path} {r.status_code}: {r.text[:300]}")
         return r.json()
+
+    def _get_retry(self, url: str, params: dict[str, Any] | None, headers: dict[str, str] | None = None):
+        """429(호출 제한)·5xx 는 잠시 쉬고 재시도 (장기 백필용). 성공 후에도 0.15초 대기해 버킷 보호."""
+        for attempt in range(6):
+            r = self.session.get(url, headers=headers or self._headers(), params=params, timeout=30)
+            if r.status_code == 429 or r.status_code >= 500:
+                time.sleep(min(2 ** attempt, 20))
+                continue
+            time.sleep(0.15)
+            return r
+        return r
 
     # ---- endpoints -------------------------------------------------------
     def orders(self, start_date: str, end_date: str, **extra) -> list[dict[str, Any]]:

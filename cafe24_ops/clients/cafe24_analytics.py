@@ -47,10 +47,10 @@ class Cafe24Analytics:
         if self.c.expires_at and time.time() >= self.c.expires_at:
             self.c._refresh_now()
         q = {"mall_id": self.c.mall_id, "start_date": start_date, "end_date": end_date, **params}
-        r = self.c.session.get(f"{HOST}{path}", headers=self.c._headers(), params=q, timeout=30)
+        r = self.c._get_retry(f"{HOST}{path}", q)
         if r.status_code == 401:
             self.c._refresh_now()
-            r = self.c.session.get(f"{HOST}{path}", headers=self.c._headers(), params=q, timeout=30)
+            r = self.c._get_retry(f"{HOST}{path}", q)
         if r.status_code == 403:
             raise PermissionError(f"analytics {path} 403 — mall.read_analytics scope 누락 가능: {r.text[:200]}")
         if r.status_code >= 400:
