@@ -32,7 +32,7 @@ def digest(store, d: str) -> dict[str, Any]:
     cur = _day(store, d)
     empty = {"date": d, "headline": "데이터 없음", "summary": "해당 날짜의 수집 데이터가 없습니다.", "lines": [], "core": [],
              "avg7": [], "anomalies": [], "ads": [], "failures": [], "empty": True}
-    if not cur:
+    if not cur or (cur.get("gross_sales") is None and cur.get("orders") is None and cur.get("visitors") is None):
         return empty
     d1 = _day(store, (base - timedelta(days=1)).isoformat())
     d7 = _day(store, (base - timedelta(days=7)).isoformat())
@@ -50,7 +50,8 @@ def digest(store, d: str) -> dict[str, Any]:
     c1, c7, c365, cavg = compare(cur, d1), compare(cur, d7), compare(cur, d365), compare(cur, avg7)
 
     def tri(m: str) -> str:
-        return f"전일 {_pct(c1[m]['pct'])} · 전주 {_pct(c7[m]['pct'])} · 전년 {_pct(c365[m]['pct'])}"
+        g = lambda c: c.get(m, {}).get("pct")  # noqa: E731
+        return f"전일 {_pct(g(c1))} · 전주 {_pct(g(c7))} · 전년 {_pct(g(c365))}"
 
     gs, orders, aov = cur.get("gross_sales"), cur.get("orders") or 0, cur.get("aov")
     vis, cr = cur.get("visitors"), cur.get("conversion_rate")

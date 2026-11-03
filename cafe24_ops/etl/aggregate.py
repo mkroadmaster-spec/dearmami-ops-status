@@ -77,7 +77,8 @@ def kpis_from_facts(facts: list[dict[str, Any]]) -> dict[str, float | None]:
 def aggregate_day(store, d: str) -> dict[str, float | None]:
     facts = store.facts(d, d)
     k = kpis_from_facts(facts)
-    store.upsert_kpi(d, k)
+    if facts:  # 수집된 게 없으면 빈 행을 남기지 않는다 (missing_dates·조회 범위가 오염되지 않게)
+        store.upsert_kpi(d, k)
     return k
 
 
