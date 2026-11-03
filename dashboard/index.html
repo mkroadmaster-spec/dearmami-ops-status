@@ -164,6 +164,11 @@
 </style>
 </head>
 <body>
+<div id="authcode" class="hidden" style="position:fixed;inset:auto 0 0 0;z-index:60;background:#fff;color:#0f172a;border-top:4px solid #2a78d6;padding:14px 16px;box-shadow:0 -8px 30px rgba(0,0,0,.25);font-size:14px">
+  <b>카페24 인증코드가 도착했습니다</b> <span style="color:#64748b">(1분 안에 교환)</span>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><code id="authcodeVal" style="font-size:15px;padding:6px 10px;background:#f1f5f9;border-radius:8px;user-select:all"></code>
+  <button type="button" id="authcodeCopy" style="font:inherit;font-weight:700;padding:8px 14px;border:0;border-radius:8px;background:#2a78d6;color:#fff;cursor:pointer">코드 복사</button>
+  <a id="authcodeLink" target="_blank" rel="noopener" style="font-weight:700;color:#2a78d6">→ token fast 실행 화면 열기</a><span id="authcodeMsg" style="color:#0f8a3c"></span></div></div>
 <div id="gate" class="hidden"><form id="gateForm"><h2 id="gateTitle">운영 대시보드</h2><p>비밀번호를 입력하세요</p><p class="gerr" id="gateErr"></p><input type="password" id="gatePw" placeholder="비밀번호" autocomplete="current-password" autofocus><button type="submit">들어가기</button></form></div>
 <main>
   <div class="hero">
@@ -649,6 +654,12 @@ async function loadAll() {
   catch (e) { showErr(`데이터 로드 실패: ${e.message}\n→ 수집이 아직 없으면: python scripts/run_all.py --mode demo --days 75`); console.error(e); }
 }
 
+(function showAuthCode() {  // 카페24 승인 후 ?code=... 로 돌아왔을 때
+  const code = new URLSearchParams(location.search).get('code'); if (!code) return;
+  const box = $('#authcode'); box.classList.remove('hidden'); $('#authcodeVal').textContent = code;
+  $('#authcodeLink').href = 'https://github.com/mkroadmaster-spec/dearmami-ops-status/actions/workflows/cafe24-token-fast.yml';
+  $('#authcodeCopy').onclick = async () => { try { await navigator.clipboard.writeText(code); $('#authcodeMsg').textContent = '복사됨 ✓'; } catch (e) { const r = document.createRange(); r.selectNodeContents($('#authcodeVal')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('#authcodeMsg').textContent = 'Ctrl+C 로 복사하세요'; } };
+})();
 (async function init() {
   try {
     if (ENC && !SNAP) SNAP = await askPassword();

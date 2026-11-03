@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       code:
-        description: "승인 후 주소창의 code= 값"
+        description: "승인 후 주소창의 code= 값 (주소 전체를 통째로 붙여넣어도 됩니다)"
         required: true
       redirect_uri:
         description: "authorize 때와 동일"
@@ -25,9 +25,13 @@ jobs:
       - name: 교환 (즉시)
         run: |
           python3 - <<'PY'
-          import os, json, base64, urllib.request, urllib.parse
-          mall, cid, sec = os.environ["CAFE24_MALL_ID"], os.environ["CAFE24_CLIENT_ID"], os.environ["CAFE24_CLIENT_SECRET"]
-          data = urllib.parse.urlencode({"grant_type": "authorization_code", "code": "${{ github.event.inputs.code }}",
+          import os, json, base64, re, urllib.request, urllib.parse
+          mall, cid, sec = os.environ["CAFE24_MALL_ID"].strip(), os.environ["CAFE24_CLIENT_ID"].strip(), os.environ["CAFE24_CLIENT_SECRET"].strip()
+          raw = """${{ github.event.inputs.code }}""".strip()
+          m = re.search(r"[?&]code=([^&#\s]+)", raw)
+          code = urllib.parse.unquote(m.group(1)) if m else raw.split("&")[0].replace("code=", "").strip()
+          print("code 길이:", len(code))
+          data = urllib.parse.urlencode({"grant_type": "authorization_code", "code": code,
                                          "redirect_uri": "${{ github.event.inputs.redirect_uri }}"}).encode()
           req = urllib.request.Request(f"https://{mall}.cafe24api.com/api/v2/oauth/token", data=data, headers={
               "Authorization": "Basic " + base64.b64encode(f"{cid}:{sec}".encode()).decode(),
@@ -37,7 +41,7 @@ jobs:
           except urllib.error.HTTPError as e:
               body = e.read().decode()[:300]
               with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-                  f.write(f"## ❌ 토큰 교환 실패 ({e.code})\n\n```\n{body}\n```\n\n- `Code time expired` → 코드가 1분 지났음: `cafe24 authorize url` 부터 다시\n- `redirect_uri ... invalid` → 개발자센터 Redirect URI 와 글자까지 같은지 확인\n")
+                  f.write(f"## ❌ 토큰 교환 실패 ({e.code})\n\n```\n{body}\n```\n\n- `Invalid code` / `Code time expired` → 코드가 1분 지났거나, 이미 한 번 쓴 코드이거나, 복사가 빗나감: `cafe24 authorize url` 부터 다시 (주소창 전체를 붙여넣으면 됩니다)\n- `redirect_uri ... invalid` → 개발자센터 Redirect URI 와 글자까지 같은지 확인\n- 몰 아이디가 authorize 때 입력한 값과 Secret `CAFE24_MALL_ID` 가 다르면 실패합니다\n")
               print("::error::교환 실패", e.code, body); raise SystemExit(1)
           scopes = tok.get("scopes") or tok.get("scope") or []
           scopes = ",".join(scopes) if isinstance(scopes, list) else str(scopes)
