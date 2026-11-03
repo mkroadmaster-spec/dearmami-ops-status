@@ -11,7 +11,7 @@ on:
       redirect_uri:
         description: "authorize 때와 동일"
         required: true
-        default: "https://localhost"
+        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
 
 jobs:
   exchange:
@@ -35,7 +35,10 @@ jobs:
           try:
               tok = json.load(urllib.request.urlopen(req, timeout=20))
           except urllib.error.HTTPError as e:
-              print("::error::교환 실패", e.code, e.read().decode()[:300]); raise SystemExit(1)
+              body = e.read().decode()[:300]
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                  f.write(f"## ❌ 토큰 교환 실패 ({e.code})\n\n```\n{body}\n```\n\n- `Code time expired` → 코드가 1분 지났음: `cafe24 authorize url` 부터 다시\n- `redirect_uri ... invalid` → 개발자센터 Redirect URI 와 글자까지 같은지 확인\n")
+              print("::error::교환 실패", e.code, body); raise SystemExit(1)
           scopes = tok.get("scopes") or tok.get("scope") or []
           scopes = ",".join(scopes) if isinstance(scopes, list) else str(scopes)
           need = ["mall.read_order","mall.read_customer","mall.read_community","mall.read_product","mall.read_category","mall.read_application","mall.read_analytics"]
@@ -43,6 +46,10 @@ jobs:
           print("부여 scope:", scopes)
           if miss: print("::warning::누락 scope:", ",".join(miss), "— 해당 지표가 빈 값으로 보입니다. 앱 권한 7개 체크 후 재인증")
           with open("tok.json", "w") as f: json.dump(tok, f)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("## ✅ 카페24 토큰 발급 성공\n\n부여된 권한: `" + scopes + "`\n\n")
+              f.write(("⚠ 누락 권한: `" + ",".join(miss) + "` — 개발자센터 앱 권한 7개 전부 체크 후 다시 승인\n\n") if miss else "권한 7개 모두 정상 ✓\n\n")
+              f.write("다음: Actions → **ops daily collect (all channels)** → Run workflow (days `30`, reset `true`)\n")
           PY
       - name: DB 저장
         run: |

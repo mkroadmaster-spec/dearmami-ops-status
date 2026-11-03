@@ -71,6 +71,7 @@ jobs:
           ARGS="--mode live --days ${{ github.event.inputs.days || '3' }} --notify"
           [ -n "${{ github.event.inputs.skip }}" ] && ARGS="$ARGS --skip ${{ github.event.inputs.skip }}"
           [ "${{ github.event.inputs.reset }}" = "true" ] && ARGS="$ARGS --reset"
-          python scripts/run_all.py $ARGS
-      - name: 브리핑 (Slack 설정 시 전송)
+          python scripts/run_all.py $ARGS 2>&1 | tee run.log
+          { echo "## 수집 결과"; echo; echo '```'; tail -n 25 run.log; echo '```'; echo; echo "대시보드 갱신: Actions → **pages deploy (dashboard)** → Run workflow (매일 07:40 자동)"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: 브리핑 (Slack/텔레그램 설정 시 전송)
         run: python scripts/notify.py
