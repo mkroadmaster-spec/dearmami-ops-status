@@ -7,3 +7,5 @@ config/secrets.env
 .pytest_cache/
 *.egg-info/
 dist/
+!data/manual/
+!data/manual/**

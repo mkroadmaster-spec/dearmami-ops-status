@@ -9,7 +9,8 @@ from typing import Any
 from .aggregate import compare, derive
 
 CHANNEL_LABEL = {"meta": "Meta", "naver_powerlink": "네이버 파워링크", "naver_place": "네이버 플레이스",
-                 "google": "Google", "kakao": "카카오", "other": "기타/자연"}
+                 "google": "Google", "kakao": "카카오", "criteo": "크리테오", "gfa": "네이버 GFA", "mobon": "모비온",
+                 "brand_search": "네이버 브랜드검색", "other": "기타/자연"}
 _ADS_KEY = {"ad_cost": "ad_cost", "ad_revenue": "ad_revenue", "clicks": "ad_clicks",
             "impressions": "ad_impressions", "conversions": "ad_conversions"}
 

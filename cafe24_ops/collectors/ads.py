@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from ..clients import ads_google, ads_kakao, ads_meta, ads_naver
+from ..clients import ads_criteo, ads_google, ads_kakao, ads_meta, ads_naver, manual_csv
 from .base import Fact, PartialFailure, fact
 
 METRICS = ("ad_cost", "impressions", "clicks", "conversions", "ad_revenue")
@@ -25,6 +25,9 @@ def active_channels() -> list[str]:
         chans.append("kakao")
     if ads_google.is_configured():
         chans.append("google")
+    if ads_criteo.is_configured():
+        chans.append("criteo")
+    chans += [f"csv:{c}" for c in manual_csv.channels()]
     return chans
 
 
@@ -56,6 +59,12 @@ def collect(store, d: str) -> list[Fact]:
         jobs.append(("kakao", lambda: _emit(d, "kakao", ads_kakao.KakaoMomentClient().account_report(d))))
     if ads_google.is_configured():
         jobs.append(("google", lambda: _emit(d, "google", ads_google.GoogleAdsClient().daily(d))))
+    if ads_criteo.is_configured():
+        jobs.append(("criteo", lambda: _emit(d, "criteo", ads_criteo.CriteoClient().daily(d))))
+    for ch in manual_csv.channels():  # CSV 업로드 채널 (GFA·모비온 등) — 해당 날짜 행이 있을 때만
+        row = manual_csv.day(ch, d)
+        if row:
+            out += _emit(d, ch, row)
 
     for name, job in jobs:
         try:

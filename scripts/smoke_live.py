@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cafe24_ops import config  # noqa: E402
 from cafe24_ops.clients import (ads_google, ads_kakao, ads_meta, ads_naver, cafe24_client as cc,  # noqa: E402
-                                ga4, naver_datalab, slack, telegram)
+                                ga4, naver_datalab, slack, telegram, ads_criteo, manual_csv)
 from cafe24_ops.clients.cafe24_analytics import Cafe24Analytics  # noqa: E402
 from cafe24_ops.store import Store  # noqa: E402
 
@@ -72,6 +72,12 @@ def main() -> int:
         report("Google Ads", lambda: f"cost={ads_google.GoogleAdsClient().daily(d)['ad_cost']:.0f}")
     else:
         print("  - Google Ads: 미설정 (STEP 7)")
+    if ads_criteo.is_configured():
+        report("크리테오", lambda: f"cost={ads_criteo.CriteoClient().daily(d)['ad_cost']:.0f}")
+    else:
+        print("  - 크리테오: 미설정 (STEP 7-b)")
+    for cs in manual_csv.status():
+        print(f"  ✓ CSV {cs['label']}: {cs['files']}개 파일 · {cs['days']}일 ({cs['from']}~{cs['to']})")
     if slack.is_configured():
         report("Slack", lambda: f"sent={slack.send('✅ cafe24-ops-status smoke test')}")
     else:
