@@ -1,0 +1,53 @@
+name: kakao token
+
+# 카카오모먼트 2단계: 인증코드 → 액세스/리프레시 토큰 교환 → DB(app_kv) 저장. 이후 수집이 자동 갱신.
+on:
+  workflow_dispatch:
+    inputs:
+      code:
+        description: "승인 후 받은 code (주소 전체를 붙여넣어도 됩니다)"
+        required: true
+      redirect_uri:
+        description: "authorize 때와 동일"
+        required: true
+        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+
+jobs:
+  exchange:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+      KAKAO_AD_ACCOUNT_ID: ${{ secrets.KAKAO_AD_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -q -r requirements.txt
+      - name: 교환 + DB 저장 + 리포트 1회 확인
+        run: |
+          python - <<'PY'
+          import os, re, sys, urllib.parse
+          sys.path.insert(0, ".")
+          from cafe24_ops.clients import ads_kakao
+          from cafe24_ops.store import Store
+          raw = """${{ github.event.inputs.code }}""".strip()
+          m = re.search(r"[?&]code=([^&#\s]+)", raw)
+          code = urllib.parse.unquote(m.group(1)) if m else raw
+          summ = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
+          try:
+              tok = ads_kakao.exchange_code(code, "${{ github.event.inputs.redirect_uri }}")
+          except Exception as e:
+              summ.write(f"## ❌ 카카오 토큰 교환 실패\n\n```\n{e}\n```\n\n- `invalid_grant` → 코드가 10분 지났거나 이미 사용됨: `kakao authorize url` 부터 다시\n- `KOE010`/`redirect_uri` → 앱의 카카오 로그인 Redirect URI 가 글자까지 같은지 확인\n")
+              raise SystemExit(1)
+          store = Store(); ads_kakao.save_tokens(store, tok)
+          summ.write("## ✅ 카카오 토큰 발급 + DB 저장 완료\n\n")
+          try:
+              from datetime import date, timedelta
+              d = (date.today() - timedelta(days=1)).isoformat()
+              rep = ads_kakao.KakaoMomentClient(store).account_report(d)
+              summ.write(f"어제({d}) 리포트 확인: 광고비 {rep['ad_cost']:,.0f} · 노출 {rep['impressions']:,.0f} · 클릭 {rep['clicks']:,.0f}\n\n다음: `ops daily collect` 실행 → `ads=ok`\n")
+          except Exception as e:
+              summ.write(f"⚠ 토큰은 저장됐지만 리포트 조회 실패: `{e}`\n\n→ 앱의 **카카오모먼트 사용 신청 승인** 여부, 로그인한 계정이 **광고계정 멤버**인지, `KAKAO_AD_ACCOUNT_ID` 숫자를 확인하세요.\n")
+          PY

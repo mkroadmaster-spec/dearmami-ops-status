@@ -65,7 +65,7 @@ def main() -> int:
     else:
         print("  - 네이버 오픈API: 미설정 (STEP 5)")
     if ads_kakao.is_configured():
-        report("카카오모먼트", lambda: f"cost={ads_kakao.KakaoMomentClient().account_report(d)['ad_cost']:.0f}")
+        report("카카오모먼트", lambda: f"cost={ads_kakao.KakaoMomentClient(store).account_report(d)['ad_cost']:.0f}")
     else:
         print("  - 카카오: 미설정 (STEP 6)")
     if ads_google.is_configured():

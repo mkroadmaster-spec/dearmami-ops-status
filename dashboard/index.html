@@ -657,7 +657,12 @@ async function loadAll() {
 (function showAuthCode() {  // 카페24 승인 후 ?code=... 로 돌아왔을 때
   const code = new URLSearchParams(location.search).get('code'); if (!code) return;
   const box = $('#authcode'); box.classList.remove('hidden'); $('#authcodeVal').textContent = code;
-  $('#authcodeLink').href = 'https://github.com/mkroadmaster-spec/dearmami-ops-status/actions/workflows/cafe24-token-fast.yml';
+  const st = new URLSearchParams(location.search).get('state') || '';
+  const wf = st === 'kakao' ? 'kakao-token.yml' : 'cafe24-token-fast.yml';
+  box.querySelector('b').textContent = (st === 'kakao' ? '카카오' : '카페24') + ' 인증코드가 도착했습니다';
+  box.querySelector('b').nextElementSibling.textContent = st === 'kakao' ? '(10분 안에 교환)' : '(1분 안에 교환)';
+  $('#authcodeLink').textContent = '→ ' + (st === 'kakao' ? 'kakao token' : 'token fast') + ' 실행 화면 열기';
+  $('#authcodeLink').href = 'https://github.com/mkroadmaster-spec/dearmami-ops-status/actions/workflows/' + wf;
   $('#authcodeCopy').onclick = async () => { try { await navigator.clipboard.writeText(code); $('#authcodeMsg').textContent = '복사됨 ✓'; } catch (e) { const r = document.createRange(); r.selectNodeContents($('#authcodeVal')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('#authcodeMsg').textContent = 'Ctrl+C 로 복사하세요'; } };
 })();
 (async function init() {

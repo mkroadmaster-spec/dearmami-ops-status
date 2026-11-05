@@ -56,7 +56,7 @@ def collect(store, d: str) -> list[Fact]:
             return facts
         jobs.append(("naver_sa", _naver))
     if ads_kakao.is_configured():
-        jobs.append(("kakao", lambda: _emit(d, "kakao", ads_kakao.KakaoMomentClient().account_report(d))))
+        jobs.append(("kakao", lambda: _emit(d, "kakao", ads_kakao.KakaoMomentClient(store).account_report(d))))
     if ads_google.is_configured():
         jobs.append(("google", lambda: _emit(d, "google", ads_google.GoogleAdsClient().daily(d))))
     if ads_criteo.is_configured():
