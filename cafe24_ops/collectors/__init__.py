@@ -51,7 +51,7 @@ AD_CHANNELS: list[dict[str, Any]] = [
      "required_env": ads_naver.REQUIRED_ENV, "optional_env": (), "is_configured": ads_naver.is_configured,
      "doc": "docs/CONNECT-GUIDE.md#step-4"},
     {"key": "kakao", "label": "카카오모먼트 (토큰은 DB 자동 갱신)", "step": "STEP 6", "required_env": ads_kakao.REQUIRED_ENV,
-     "optional_env": ("KAKAO_CLIENT_SECRET",), "is_configured": ads_kakao.is_configured, "doc": "docs/SETUP-GUIDE.md#step-6"},
+     "optional_env": ("KAKAO_BUSINESS_SECRET",), "is_configured": ads_kakao.is_configured, "doc": "docs/SETUP-GUIDE.md#step-6"},
     {"key": "google", "label": "Google Ads", "step": "STEP 7", "required_env": ads_google.REQUIRED_ENV,
      "optional_env": ("GOOGLE_ADS_LOGIN_CUSTOMER_ID",), "is_configured": ads_google.is_configured,
      "doc": "docs/CONNECT-GUIDE.md#step-6"},

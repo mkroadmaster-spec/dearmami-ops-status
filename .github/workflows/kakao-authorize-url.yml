@@ -1,11 +1,11 @@
 name: kakao authorize url
 
-# 카카오모먼트 1단계: 승인 링크 생성 → 카카오 로그인·동의 → 대시보드로 돌아오면 코드 복사 → 'kakao token' 에 붙여넣기 (코드 10분 유효)
+# 카카오모먼트 1단계(비즈니스 인증): 승인 링크 생성 → 카카오 로그인·동의 → 대시보드로 돌아오면 코드 복사 → 'kakao token' 에 붙여넣기 (코드 10분 유효)
 on:
   workflow_dispatch:
     inputs:
       redirect_uri:
-        description: "developers.kakao.com 앱 > 카카오 로그인 > Redirect URI 와 글자까지 동일"
+        description: "앱 > 플랫폼 키 > REST API 키 수정 > '비즈니스 인증 리다이렉트 URI' 와 글자까지 동일"
         required: true
         default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
 
@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_AD_ACCOUNT_ID: ${{ secrets.KAKAO_AD_ACCOUNT_ID }}
     steps:
       - run: |
           python3 - <<'PY'
@@ -21,8 +22,9 @@ jobs:
           key = os.environ["KAKAO_REST_API_KEY"].strip()
           if not key: print("::error::Secret KAKAO_REST_API_KEY 가 없습니다"); raise SystemExit(1)
           key_enc = "%" + format(ord(key[0]), "02X") + key[1:]   # 로그 마스킹 회피
-          url = "https://kauth.kakao.com/oauth/authorize?" + urllib.parse.urlencode({"client_id": key_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code", "state": "kakao"}, safe="%")
+          acc = os.environ.get("KAKAO_AD_ACCOUNT_ID", "").strip() or "*"
+          url = "https://kauth.kakao.com/oauth/business/authorize?" + urllib.parse.urlencode({"client_id": key_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code", "scope": "moment_management", "resource_ids": f"moment:{acc}", "state": "kakao"}, safe="%*:")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-              f.write("## 카카오 승인 링크\n\n링크 클릭 → 카카오 로그인(광고계정 멤버 계정) → 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `kakao token` 에 붙여넣기 (10분 유효)\n\n")
+              f.write("## 카카오 비즈니스 인증 링크\n\n링크 클릭 → 카카오 로그인(광고계정 멤버 계정) → 광고계정 접근 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `kakao token` 에 붙여넣기 (10분 유효)\n\n")
               f.write(f"### 👉 [여기를 클릭해 승인하기]({url})\n")
           PY

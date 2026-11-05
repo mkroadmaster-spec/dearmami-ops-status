@@ -18,6 +18,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_BUSINESS_SECRET: ${{ secrets.KAKAO_BUSINESS_SECRET }}
       KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
       KAKAO_AD_ACCOUNT_ID: ${{ secrets.KAKAO_AD_ACCOUNT_ID }}
     steps:
@@ -39,7 +40,7 @@ jobs:
           try:
               tok = ads_kakao.exchange_code(code, "${{ github.event.inputs.redirect_uri }}")
           except Exception as e:
-              summ.write(f"## ❌ 카카오 토큰 교환 실패\n\n```\n{e}\n```\n\n- `invalid_grant` → 코드가 10분 지났거나 이미 사용됨: `kakao authorize url` 부터 다시\n- `KOE010`/`redirect_uri` → 앱의 카카오 로그인 Redirect URI 가 글자까지 같은지 확인\n")
+              summ.write(f"## ❌ 카카오 토큰 교환 실패\n\n```\n{e}\n```\n\n- `invalid_grant` → 코드가 10분 지났거나 이미 사용됨: `kakao authorize url` 부터 다시\n- `KOE010`/`redirect_uri` → REST API 키 수정 화면의 **비즈니스 인증 리다이렉트 URI** 가 글자까지 같은지 확인\n- `KOE232`/권한 → [추가 기능 신청] 카카오모먼트 승인 여부, [비즈니스 인증 > 동의항목] moment 항목 사용 설정 확인\n- `client_secret` 관련 → Secret `KAKAO_BUSINESS_SECRET` (비즈니스 인증 줄 코드) 확인\n")
               raise SystemExit(1)
           store = Store(); ads_kakao.save_tokens(store, tok)
           summ.write("## ✅ 카카오 토큰 발급 + DB 저장 완료\n\n")
