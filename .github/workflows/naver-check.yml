@@ -1,0 +1,41 @@
+name: naver sa check
+
+# 네이버 검색광고 API 키·고객ID 조합 진단: 캠페인 목록 1회 호출 → 성공/실패 원인을 Summary 에 표시
+on:
+  workflow_dispatch:
+    inputs:
+      customer_id:
+        description: "확인할 CUSTOMER_ID (비우면 Secret NAVER_SA_CUSTOMER_ID)"
+        default: ""
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NAVER_SA_API_KEY: ${{ secrets.NAVER_SA_API_KEY }}
+      NAVER_SA_SECRET_KEY: ${{ secrets.NAVER_SA_SECRET_KEY }}
+      NAVER_SA_CUSTOMER_ID: ${{ github.event.inputs.customer_id || secrets.NAVER_SA_CUSTOMER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -q -r requirements.txt
+      - run: |
+          python - <<'PY'
+          import os, sys
+          sys.path.insert(0, ".")
+          from cafe24_ops.clients import ads_naver
+          summ = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
+          cid = os.environ["NAVER_SA_CUSTOMER_ID"].strip()
+          key = os.environ["NAVER_SA_API_KEY"].strip(); sec = os.environ["NAVER_SA_SECRET_KEY"].strip()
+          summ.write(f"## 네이버 검색광고 진단 — CUSTOMER_ID `{cid}`\n\n키 길이: API {len(key)} · 비밀키 {len(sec)} (앞뒤 공백 제거 후)\n\n")
+          if len(key) != len(os.environ["NAVER_SA_API_KEY"]) or len(sec) != len(os.environ["NAVER_SA_SECRET_KEY"]):
+              summ.write("⚠ Secret 값에 앞뒤 공백/줄바꿈이 포함돼 있습니다 → 다시 저장\n\n")
+          try:
+              c = ads_naver.NaverSAClient()
+              camps = c.campaigns()
+              summ.write(f"### ✅ 인증 성공 · 캠페인 {len(camps)}개\n\n" + "\n".join(f"- {x.get('name')} ({x.get('campaignTp')})" for x in camps[:15]) + "\n")
+          except Exception as e:
+              summ.write(f"### ❌ 실패\n\n```\n{e}\n```\n\n- `auth-failed` + 본인 계정 ID 로는 성공 → 이 키로 해당 광고주를 조회할 권한이 없음: 광고주 계정에서 직접 라이선스 발급하거나, 광고주가 **대행사(광고 관리) 권한**을 부여해야 함\n- 본인 계정 ID 로도 실패 → 비밀키 복사 오류(재발급 후 다시 저장) 또는 라이선스 미발급\n")
+              raise SystemExit(1)
+          PY

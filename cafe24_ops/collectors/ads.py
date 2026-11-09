@@ -69,6 +69,10 @@ def collect(store, d: str) -> list[Fact]:
     for name, job in jobs:
         try:
             out += job()
+        except PermissionError as e:
+            if "토큰 없음" in str(e):  # 최초 토큰 발급 전 — 실패가 아니라 스킵으로 기록
+                continue
+            errors.append(f"{name}: {e}")
         except Exception as e:  # noqa: BLE001
             errors.append(f"{name}: {e}")
 
