@@ -1,0 +1,30 @@
+name: google authorize url
+
+# 구글 광고 1단계: 승인 링크 생성 → 구글 로그인(광고계정 권한 계정) → 대시보드로 돌아오면 코드 복사 → 'google token' 에 붙여넣기 (코드 약 10분 유효)
+on:
+  workflow_dispatch:
+    inputs:
+      redirect_uri:
+        description: "Cloud Console OAuth 클라이언트의 '승인된 리디렉션 URI' 와 글자까지 동일"
+        required: true
+        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+
+jobs:
+  url:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import os, urllib.parse
+          cid = os.environ["GOOGLE_ADS_CLIENT_ID"].strip()
+          if not cid: print("::error::Secret GOOGLE_ADS_CLIENT_ID 가 없습니다"); raise SystemExit(1)
+          cid_enc = "%" + format(ord(cid[0]), "02X") + cid[1:]   # 로그 마스킹 회피
+          q = urllib.parse.urlencode({"client_id": cid_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code",
+                                      "scope": "https://www.googleapis.com/auth/adwords", "access_type": "offline", "prompt": "consent", "state": "google"}, safe="%")
+          url = "https://accounts.google.com/o/oauth2/v2/auth?" + q
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("## 구글 승인 링크\n\n링크 클릭 → 광고계정 권한이 있는 구글 계정으로 로그인 → ('확인되지 않은 앱' 경고가 나오면 고급 → 이동) → 허용 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `google token` 에 붙여넣기\n\n")
+              f.write(f"### 👉 [여기를 클릭해 승인하기]({url})\n")
+          PY

@@ -52,7 +52,7 @@ AD_CHANNELS: list[dict[str, Any]] = [
      "doc": "docs/CONNECT-GUIDE.md#step-4"},
     {"key": "kakao", "label": "카카오모먼트 (토큰은 DB 자동 갱신)", "step": "STEP 6", "required_env": ads_kakao.REQUIRED_ENV,
      "optional_env": ("KAKAO_BUSINESS_SECRET",), "is_configured": ads_kakao.is_configured, "doc": "docs/SETUP-GUIDE.md#step-6"},
-    {"key": "google", "label": "Google Ads", "step": "STEP 7", "required_env": ads_google.REQUIRED_ENV,
+    {"key": "google", "label": "Google Ads (토큰은 DB 자동 갱신)", "step": "STEP 7", "required_env": ads_google.REQUIRED_ENV,
      "optional_env": ("GOOGLE_ADS_LOGIN_CUSTOMER_ID",), "is_configured": ads_google.is_configured,
      "doc": "docs/CONNECT-GUIDE.md#step-6"},
     {"key": "criteo", "label": "크리테오 (Criteo API)", "step": "STEP 7", "required_env": ads_criteo.REQUIRED_ENV,

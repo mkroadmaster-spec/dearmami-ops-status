@@ -58,7 +58,7 @@ def collect(store, d: str) -> list[Fact]:
     if ads_kakao.is_configured():
         jobs.append(("kakao", lambda: _emit(d, "kakao", ads_kakao.KakaoMomentClient(store).account_report(d))))
     if ads_google.is_configured():
-        jobs.append(("google", lambda: _emit(d, "google", ads_google.GoogleAdsClient().daily(d))))
+        jobs.append(("google", lambda: _emit(d, "google", ads_google.GoogleAdsClient(store).daily(d))))
     if ads_criteo.is_configured():
         jobs.append(("criteo", lambda: _emit(d, "criteo", ads_criteo.CriteoClient().daily(d))))
     for ch in manual_csv.channels():  # CSV 업로드 채널 (GFA·모비온 등) — 해당 날짜 행이 있을 때만

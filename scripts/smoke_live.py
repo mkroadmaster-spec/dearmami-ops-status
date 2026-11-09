@@ -69,7 +69,7 @@ def main() -> int:
     else:
         print("  - 카카오: 미설정 (STEP 6)")
     if ads_google.is_configured():
-        report("Google Ads", lambda: f"cost={ads_google.GoogleAdsClient().daily(d)['ad_cost']:.0f}")
+        report("Google Ads", lambda: f"cost={ads_google.GoogleAdsClient(store).daily(d)['ad_cost']:.0f}")
     else:
         print("  - Google Ads: 미설정 (STEP 7)")
     if ads_criteo.is_configured():

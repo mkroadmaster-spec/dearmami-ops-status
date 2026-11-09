@@ -658,10 +658,11 @@ async function loadAll() {
   const code = new URLSearchParams(location.search).get('code'); if (!code) return;
   const box = $('#authcode'); box.classList.remove('hidden'); $('#authcodeVal').textContent = code;
   const st = new URLSearchParams(location.search).get('state') || '';
-  const wf = st === 'kakao' ? 'kakao-token.yml' : 'cafe24-token-fast.yml';
-  box.querySelector('b').textContent = (st === 'kakao' ? '카카오' : '카페24') + ' 인증코드가 도착했습니다';
-  box.querySelector('b').nextElementSibling.textContent = st === 'kakao' ? '(10분 안에 교환)' : '(1분 안에 교환)';
-  $('#authcodeLink').textContent = '→ ' + (st === 'kakao' ? 'kakao token' : 'token fast') + ' 실행 화면 열기';
+  const map = { kakao: ['카카오', 'kakao-token.yml', 'kakao token', '(10분 안에 교환)'], google: ['구글', 'google-token.yml', 'google token', '(10분 안에 교환)'] };
+  const [who, wf, wfName, limit] = map[st] || ['카페24', 'cafe24-token-fast.yml', 'token fast', '(1분 안에 교환)'];
+  box.querySelector('b').textContent = who + ' 인증코드가 도착했습니다';
+  box.querySelector('b').nextElementSibling.textContent = limit;
+  $('#authcodeLink').textContent = '→ ' + wfName + ' 실행 화면 열기';
   $('#authcodeLink').href = 'https://github.com/mkroadmaster-spec/dearmami-ops-status/actions/workflows/' + wf;
   $('#authcodeCopy').onclick = async () => { try { await navigator.clipboard.writeText(code); $('#authcodeMsg').textContent = '복사됨 ✓'; } catch (e) { const r = document.createRange(); r.selectNodeContents($('#authcodeVal')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('#authcodeMsg').textContent = 'Ctrl+C 로 복사하세요'; } };
 })();
