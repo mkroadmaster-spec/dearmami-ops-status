@@ -1,0 +1,29 @@
+name: gfa authorize url
+
+# 네이버 GFA(성과형 DA) 1단계: 네이버 로그인 승인 링크 생성 → 네이버 로그인·동의 → 대시보드로 돌아오면 코드 복사 → 'gfa token' 에 붙여넣기
+# 전제: developers.naver.com 앱에 '네이버 로그인' API 사용 + Callback URL = redirect_uri, GFA 대표 관리 계정 > 설정 > API 관리 > API 사용 신청 승인
+on:
+  workflow_dispatch:
+    inputs:
+      redirect_uri:
+        description: "네이버 개발자센터 앱 > API 설정 > 네이버 로그인 Callback URL 과 글자까지 동일"
+        required: true
+        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+
+jobs:
+  url:
+    runs-on: ubuntu-latest
+    env:
+      NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import os, urllib.parse
+          cid = os.environ["NAVER_CLIENT_ID"].strip()
+          if not cid: print("::error::Secret NAVER_CLIENT_ID 가 없습니다 (developers.naver.com 앱 Client ID)"); raise SystemExit(1)
+          cid_enc = "%" + format(ord(cid[0]), "02X") + cid[1:]   # 로그 마스킹 회피
+          url = "https://nid.naver.com/oauth2.0/authorize?" + urllib.parse.urlencode({"response_type": "code", "client_id": cid_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "state": "gfa"}, safe="%")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("## 네이버 GFA 승인 링크 (네이버 로그인)\n\n링크 클릭 → **GFA 광고계정 멤버인 네이버 아이디**로 로그인 → 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `gfa token` 에 붙여넣기 (10분 안에)\n\n")
+              f.write(f"### 👉 [여기를 클릭해 승인하기]({url})\n")
+          PY

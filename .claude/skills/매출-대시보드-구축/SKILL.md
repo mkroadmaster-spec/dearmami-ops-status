@@ -117,7 +117,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 | 3 | Meta | **시스템 사용자 토큰(만료 없음)** ads_read, `act_` 숫자 | 광고 탭 Meta 행 |
 | 4 | 네이버 SA | 콘솔 복사 3종 (가장 쉬움) | 파워링크/플레이스 자동 분리 |
 | 5 | 네이버 데이터랩 | Client ID/Secret + competitors | 경쟁사 트렌드 |
-| 6~7 | 카카오·Google Ads | 후순위(토큰 단기 만료·개발자 토큰 승인) | 광고 탭 행 |
+| 6 | 카카오모먼트 | 비즈 앱 + 모먼트 권한 심사 → 비즈니스 인증 OAuth(`kakao authorize url`→`kakao token`, resource_ids 비움) → DB 토큰 자동 갱신 | 광고 탭 카카오 행 (5초/1회 → 1년 백필 1시간) |
+| 6-b | 네이버 GFA | developers.naver.com 앱에 네이버 로그인 API + Callback=대시보드, GFA 설정>API 관리>사용 신청(네이버 승인) → `gfa authorize url`→`gfa token` | 광고 탭 GFA 행 (CSV 대체) |
+| 7 | Google Ads | 개발자 토큰 Explorer 승인 + OAuth 클라이언트 → `google authorize url`→`google token` | 광고 탭 구글 행 |
 | 8 | Slack | Webhook | `notify.py` 도착, 실패 채널 매일 알림 |
 
 각 단계 후 **채널 연결 탭 카드가 녹색**이면 완료. 실 키 첫 수집 시 응답 필드 1회 검증(문서 기준 작성).

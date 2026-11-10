@@ -658,7 +658,7 @@ async function loadAll() {
   const code = new URLSearchParams(location.search).get('code'); if (!code) return;
   const box = $('#authcode'); box.classList.remove('hidden'); $('#authcodeVal').textContent = code;
   const st = new URLSearchParams(location.search).get('state') || '';
-  const map = { kakao: ['카카오', 'kakao-token.yml', 'kakao token', '(10분 안에 교환)'], google: ['구글', 'google-token.yml', 'google token', '(10분 안에 교환)'] };
+  const map = { kakao: ['카카오', 'kakao-token.yml', 'kakao token', '(10분 안에 교환)'], google: ['구글', 'google-token.yml', 'google token', '(10분 안에 교환)'], gfa: ['네이버 GFA', 'gfa-token.yml', 'gfa token', '(10분 안에 교환)'] };
   const [who, wf, wfName, limit] = map[st] || ['카페24', 'cafe24-token-fast.yml', 'token fast', '(1분 안에 교환)'];
   box.querySelector('b').textContent = who + ' 인증코드가 도착했습니다';
   box.querySelector('b').nextElementSibling.textContent = limit;

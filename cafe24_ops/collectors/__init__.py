@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from .. import config
-from ..clients import ads_criteo, ads_google, ads_kakao, ads_meta, ads_naver, cafe24_client, ga4 as ga4_client, manual_csv, naver_datalab, slack, telegram
+from ..clients import ads_criteo, ads_gfa, ads_google, ads_kakao, ads_meta, ads_naver, cafe24_client, ga4 as ga4_client, manual_csv, naver_datalab, slack, telegram
 from . import ads, cafe24, cafe24_analytics, competitor, creative, demo, ga4, naver_keyword
 from .base import Collector
 
@@ -57,6 +57,8 @@ AD_CHANNELS: list[dict[str, Any]] = [
      "doc": "docs/CONNECT-GUIDE.md#step-6"},
     {"key": "criteo", "label": "크리테오 (Criteo API)", "step": "STEP 7", "required_env": ads_criteo.REQUIRED_ENV,
      "optional_env": ("CRITEO_ADVERTISER_ID",), "is_configured": ads_criteo.is_configured, "doc": "docs/CSV-CHANNELS.md"},
+    {"key": "gfa", "label": "네이버 GFA 성과형 DA (토큰은 DB 자동 갱신)", "step": "STEP 6-b", "required_env": ads_gfa.REQUIRED_ENV,
+     "optional_env": ("GFA_MANAGER_ACCOUNT_NO",), "is_configured": ads_gfa.is_configured, "doc": "docs/SETUP-GUIDE.md#step-6-b"},
 ]
 
 NOTIFY_CHANNELS = [
@@ -90,6 +92,8 @@ def channel_status(store=None) -> list[dict[str, Any]]:
                       "env": _env_state(ch["required_env"]), "optional_env": _env_state(ch["optional_env"]),
                       "last": last.get("ads"), "mode": mode})
     for cs in manual_csv.status():  # CSV 업로드 채널 (GFA·모비온 등)
+        if cs["channel"] == "gfa" and ads_gfa.is_configured():
+            continue  # API 연결 후에는 CSV 카드 숨김
         items.append({"key": f"csv_{cs['channel']}", "label": f"{cs['label']} (CSV 업로드)", "step": "STEP 7", "tab": "광고",
                       "doc": "docs/CSV-CHANNELS.md", "configured": cs["days"] > 0,
                       "env": [{"name": f"data/manual/{cs['channel']}/*.csv · {cs['files']}개 파일 · {cs['days']}일 ({cs['from']}~{cs['to']})", "set": cs["days"] > 0}],

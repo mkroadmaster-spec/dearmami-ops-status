@@ -130,12 +130,22 @@ NAVER_CLIENT_SECRET=...
 
 ---
 
-## STEP 6 — 카카오모먼트 (후순위)
-developers.kakao.com 앱 + 모먼트 권한 → OAuth 액세스 토큰, moment.kakao.com 광고계정 ID.
-```
-KAKAO_ACCESS_TOKEN=... / KAKAO_AD_ACCOUNT_ID=...
-```
-⚠ 액세스 토큰 단기 만료(리프레시 자동화 미구현). 응답 필드는 실 키로 첫 1회 검증.
+## STEP 6 — 카카오모먼트 (비즈니스 인증, 15분 + 앱 심사 1~2일)
+1. developers.kakao.com 앱 → **비즈 앱 전환** + [추가 기능 신청] **카카오모먼트** 승인 → [비즈니스 인증 > 동의항목] moment 항목 "사용 가능"
+2. [앱 > 플랫폼 키 > REST API 키 수정] **비즈니스 인증 리다이렉트 URI** = 대시보드 주소, 클라이언트 시크릿 **비즈니스 인증** 줄 코드 복사(복사 아이콘!)
+3. Secrets: `KAKAO_REST_API_KEY` / `KAKAO_BUSINESS_SECRET` / `KAKAO_AD_ACCOUNT_ID`(moment.kakao.com 광고계정 번호)
+4. Actions **kakao authorize url**(또는 직접 링크, resource_ids 없이 → 동의 화면에서 광고계정 선택) → 대시보드 [코드 복사] → **kakao token** → Summary ✅
+- `KOE234` 비즈니스 자산 → 승인 링크에 광고계정 번호를 박지 말고 동의 화면에서 선택 · `KOE029` Bad client credentials → 시크릿 오타(복사 아이콘으로 재저장)
+- 리포트 API 5초당 1회 → 1년 백필 ≈ 1시간
+
+## STEP 6-b — 네이버 GFA 성과형 디스플레이 광고 (네이버 로그인 OAuth, 10분 + 네이버 승인)
+1. developers.naver.com → 내 애플리케이션(데이터랩과 같은 앱 가능) → **API 설정** → 사용 API에 **네이버 로그인** 추가(제공 정보는 아무것도 체크 안 함) → 서비스 URL = 대시보드 주소, **Callback URL** = 대시보드 주소(끝 `/` 포함)
+2. Client ID / Client Secret → Secrets `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET`
+3. gfa.naver.com → **대표 관리 계정 > 설정 > API 관리 > API 사용 신청** 에 Client ID 등록 → 네이버 관리자 승인 대기 (승인 전에는 토큰 발급해도 `024 인증 실패`)
+4. Secrets `GFA_AD_ACCOUNT_NO`(광고계정 번호; 관리계정 멤버만이면 `GFA_MANAGER_ACCOUNT_NO` 추가)
+5. Actions **gfa authorize url** → 승인 → 대시보드 [코드 복사] → **gfa token** → Summary 에 광고계정 목록 + 어제 성과 ✅
+- 승인 전 동의했다가 `024` 가 계속 나면: 네이버 > 내정보 > 이력관리 > 연결된 서비스 관리 → 앱 **서비스 동의 철회** 후 재승인
+- API 연결되면 `data/manual/gfa` CSV 는 자동으로 무시(API 우선). 조회 범위: 2년 전 ~ 전일(02시 이후)
 
 ## STEP 7 — Google Ads (후순위, 개발자 토큰 승인 수일)
 ads.google.com(MCC) → API 센터 개발자 토큰 → OAuth refresh/access 토큰 → Customer ID(대시 제거).
