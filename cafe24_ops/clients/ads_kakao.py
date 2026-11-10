@@ -34,10 +34,13 @@ def _secret() -> str:
 
 
 def authorize_url(rest_key: str, redirect_uri: str, ad_account_id: str = "") -> str:
+    """resource_ids 를 비우면 사용자가 동의 화면에서 광고계정을 직접 선택 (ID 가 틀리면 KOE234 → 비우는 쪽이 안전)."""
     from urllib.parse import urlencode
-    return f"{KAUTH}/authorize?" + urlencode({"client_id": rest_key, "redirect_uri": redirect_uri, "response_type": "code",
-                                               "scope": "moment_management", "resource_ids": f"moment:{ad_account_id or '*'}",
-                                               "state": "kakao"})
+    q = {"client_id": rest_key, "redirect_uri": redirect_uri, "response_type": "code",
+         "scope": "moment_management", "state": "kakao"}
+    if ad_account_id:
+        q["resource_ids"] = f"moment:{ad_account_id}"
+    return f"{KAUTH}/authorize?" + urlencode(q)
 
 
 def exchange_code(code: str, redirect_uri: str) -> dict[str, Any]:

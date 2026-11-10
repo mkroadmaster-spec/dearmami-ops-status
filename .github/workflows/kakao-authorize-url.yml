@@ -8,6 +8,9 @@ on:
         description: "앱 > 플랫폼 키 > REST API 키 수정 > '비즈니스 인증 리다이렉트 URI' 와 글자까지 동일"
         required: true
         default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+      pin_account:
+        description: "광고계정을 Secret KAKAO_AD_ACCOUNT_ID 로 고정 (false = 동의 화면에서 직접 선택, KOE234 회피)"
+        default: "false"
 
 jobs:
   url:
@@ -22,9 +25,12 @@ jobs:
           key = os.environ["KAKAO_REST_API_KEY"].strip()
           if not key: print("::error::Secret KAKAO_REST_API_KEY 가 없습니다"); raise SystemExit(1)
           key_enc = "%" + format(ord(key[0]), "02X") + key[1:]   # 로그 마스킹 회피
-          acc = os.environ.get("KAKAO_AD_ACCOUNT_ID", "").strip() or "*"
-          url = "https://kauth.kakao.com/oauth/business/authorize?" + urllib.parse.urlencode({"client_id": key_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code", "scope": "moment_management", "resource_ids": f"moment:{acc}", "state": "kakao"}, safe="%*:")
+          acc = os.environ.get("KAKAO_AD_ACCOUNT_ID", "").strip()
+          q = {"client_id": key_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code", "scope": "moment_management", "state": "kakao"}
+          if "${{ github.event.inputs.pin_account }}" == "true" and acc:
+              q["resource_ids"] = f"moment:{acc}"   # ID 가 틀리거나 권한 없는 계정이면 KOE234
+          url = "https://kauth.kakao.com/oauth/business/authorize?" + urllib.parse.urlencode(q, safe="%*:")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-              f.write("## 카카오 비즈니스 인증 링크\n\n링크 클릭 → 카카오 로그인(광고계정 멤버 계정) → 광고계정 접근 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `kakao token` 에 붙여넣기 (10분 유효)\n\n")
+              f.write("## 카카오 비즈니스 인증 링크\n\n링크 클릭 → 카카오 로그인(광고계정 멤버 계정) → 동의 화면에서 **디어마미 광고계정 선택** → 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `kakao token` 에 붙여넣기 (10분 유효)\n\n")
               f.write(f"### 👉 [여기를 클릭해 승인하기]({url})\n")
           PY
