@@ -57,8 +57,8 @@ class GoogleAdsClient:
     def __init__(self, store=None):
         self.store = store
         self.dev_token = config.env("GOOGLE_ADS_DEVELOPER_TOKEN")
-        self.customer_id = config.env("GOOGLE_ADS_CUSTOMER_ID").replace("-", "")
-        self.login_customer_id = config.env("GOOGLE_ADS_LOGIN_CUSTOMER_ID").replace("-", "")
+        self.customer_id = "".join(c for c in config.env("GOOGLE_ADS_CUSTOMER_ID") if c.isdigit())
+        self.login_customer_id = "".join(c for c in config.env("GOOGLE_ADS_LOGIN_CUSTOMER_ID") if c.isdigit())
         kv = (lambda k: store.kv_get(k)) if store is not None else (lambda k: "")
         self.access = kv(KV_ACCESS) or config.env("GOOGLE_ADS_ACCESS_TOKEN")
         self.refresh = kv(KV_REFRESH) or config.env("GOOGLE_ADS_REFRESH_TOKEN")
