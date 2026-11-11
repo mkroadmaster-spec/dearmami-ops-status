@@ -1,6 +1,6 @@
 """Criteo Marketing API — 일자별 광고비·노출·클릭·전환·매출 (무료, 광고주 본인 계정).
 
-필요: CRITEO_CLIENT_ID, CRITEO_CLIENT_SECRET  (developers.criteo.com → My Apps → 앱 생성 → 광고주 동의(consent))
+필요: CRITEO_CLIENT_ID, CRITEO_CLIENT_SECRET  (partners.criteo.com 개발자 대시보드 → 앱 생성(Client Credentials, Marketing Solutions) → 동의 URL 생성 → 광고주 계정 관리자 승인)
 선택: CRITEO_ADVERTISER_ID (비우면 접근 가능한 전체 광고주 합산)
 인증: OAuth2 client_credentials → https://api.criteo.com/oauth2/token (액세스 토큰 15분)
 리포트: POST /{version}/statistics/report (dimensions Day, metrics Displays/Clicks/AdvertiserCost/SalesAllPc30d/RevenueGeneratedAllPc30d)
@@ -18,6 +18,9 @@ from .. import config
 
 REQUIRED_ENV = ("CRITEO_CLIENT_ID", "CRITEO_CLIENT_SECRET")
 HOST = "https://api.criteo.com"
+# 크리테오는 1·7월에 새 버전, 각 버전 12개월 지원 → 설정 버전이 종료(404)면 다음 후보로 자동 전환
+VERSIONS = ("2026-07", "2026-01", "2027-01", "2027-07")
+_ok_version = [""]
 
 
 def is_configured() -> bool:
@@ -26,7 +29,7 @@ def is_configured() -> bool:
 
 class CriteoClient:
     def __init__(self):
-        self.version = config.env("CRITEO_API_VERSION", "2025-04")
+        self.version = config.env("CRITEO_API_VERSION")
         r = requests.post(f"{HOST}/oauth2/token", data={
             "grant_type": "client_credentials", "client_id": config.env("CRITEO_CLIENT_ID"),
             "client_secret": config.env("CRITEO_CLIENT_SECRET")}, timeout=30)
@@ -43,8 +46,14 @@ class CriteoClient:
         }
         if self.advertiser_id:
             body["advertiserIds"] = self.advertiser_id
-        r = requests.post(f"{HOST}/{self.version}/statistics/report", json=body,
-                          headers={"Authorization": f"Bearer {self.token}", "Accept": "text/csv"}, timeout=60)
+        r = None
+        for ver in dict.fromkeys([v for v in (self.version, _ok_version[0]) if v] + list(VERSIONS)):
+            r = requests.post(f"{HOST}/{ver}/statistics/report", json=body,
+                              headers={"Authorization": f"Bearer {self.token}", "Accept": "text/csv"}, timeout=60)
+            if r.status_code in (404, 410):
+                continue  # 종료됐거나 아직 없는 API 버전 → 다음 후보
+            _ok_version[0] = ver
+            break
         if r.status_code in (401, 403):
             raise PermissionError(f"Criteo 권한 오류: {r.text[:200]}")
         if r.status_code >= 400:

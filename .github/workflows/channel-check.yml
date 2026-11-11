@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       channels:
-        description: "확인할 채널 (콤마): kakao,google,gfa"
+        description: "확인할 채널 (콤마): kakao,google,gfa,criteo"
         default: "kakao,google"
 
 jobs:
@@ -27,6 +27,9 @@ jobs:
       NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
       GFA_AD_ACCOUNT_NO: ${{ secrets.GFA_AD_ACCOUNT_NO }}
       GFA_MANAGER_ACCOUNT_NO: ${{ secrets.GFA_MANAGER_ACCOUNT_NO }}
+      CRITEO_CLIENT_ID: ${{ secrets.CRITEO_CLIENT_ID }}
+      CRITEO_CLIENT_SECRET: ${{ secrets.CRITEO_CLIENT_SECRET }}
+      CRITEO_ADVERTISER_ID: ${{ secrets.CRITEO_ADVERTISER_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,7 +41,7 @@ jobs:
           import os, re, sys, time, traceback
           sys.path.insert(0, ".")
           from datetime import date, timedelta
-          from cafe24_ops.clients import ads_kakao, ads_google, ads_gfa
+          from cafe24_ops.clients import ads_kakao, ads_google, ads_gfa, ads_criteo
           from cafe24_ops.store import Store
           store = Store(); d = (date.today() - timedelta(days=1)).isoformat()
           summ = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
@@ -49,13 +52,14 @@ jobs:
               return f"{name}: len={len(v)} digits_only={v.isdigit()} has_hyphen={'-' in v} has_space={bool(re.search(r'\s', v))}"
           MODS = {"kakao": (ads_kakao, lambda: ads_kakao.KakaoMomentClient(store).account_report(d), ["KAKAO_AD_ACCOUNT_ID"]),
                   "google": (ads_google, lambda: ads_google.GoogleAdsClient(store).daily(d), ["GOOGLE_ADS_CUSTOMER_ID", "GOOGLE_ADS_LOGIN_CUSTOMER_ID"]),
-                  "gfa": (ads_gfa, lambda: ads_gfa.GfaClient(store).daily(d), ["GFA_AD_ACCOUNT_NO", "GFA_MANAGER_ACCOUNT_NO"])}
+                  "gfa": (ads_gfa, lambda: ads_gfa.GfaClient(store).daily(d), ["GFA_AD_ACCOUNT_NO", "GFA_MANAGER_ACCOUNT_NO"]),
+                  "criteo": (ads_criteo, lambda: ads_criteo.CriteoClient().daily(d), ["CRITEO_CLIENT_ID", "CRITEO_ADVERTISER_ID"])}
           for ch in [c.strip() for c in "${{ github.event.inputs.channels }}".split(",") if c.strip() in MODS]:
               mod, call, ids = MODS[ch]
               out(f"## {ch} — is_configured={mod.is_configured()}")
-              for k in (mod.KV_ACCESS, mod.KV_REFRESH, mod.KV_EXPIRES):
+              for k in [getattr(mod, n) for n in ("KV_ACCESS", "KV_REFRESH", "KV_EXPIRES") if hasattr(mod, n)]:
                   v = store.kv_get(k)
-                  extra = f" (만료까지 {int(v) - int(time.time())}초)" if k == mod.KV_EXPIRES and v.isdigit() else ""
+                  extra = f" (만료까지 {int(v) - int(time.time())}초)" if k.endswith("expires_at") and v.isdigit() else ""
                   out(f"- DB `{k}`: len={len(v)}{extra}")
               for n in ids:
                   out("- " + shape(n))
