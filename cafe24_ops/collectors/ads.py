@@ -76,7 +76,7 @@ def collect(store, d: str) -> list[Fact]:
         try:
             out += job()
         except PermissionError as e:
-            if "토큰 없음" in str(e):  # 최초 토큰 발급 전 — 실패가 아니라 스킵으로 기록
+            if "최초 발급" in str(e):  # 최초 토큰 발급 전에만 스킵 (리프레시 토큰 유실·갱신 실패는 오류로 표시)
                 continue
             errors.append(f"{name}: {e}")
         except Exception as e:  # noqa: BLE001

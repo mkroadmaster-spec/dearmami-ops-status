@@ -18,7 +18,10 @@ import requests
 from .. import config
 
 REQUIRED_ENV = ("GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_CUSTOMER_ID", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET")
-HOST = "https://googleads.googleapis.com/v20"
+_ok_version = [""]
+BASE = "https://googleads.googleapis.com"
+# 구글은 메이저 버전을 약 1년 뒤 종료(종료된 버전은 404 HTML) → 설정 버전이 404 면 다음 후보로 자동 전환
+VERSIONS = ("v25", "v26", "v24", "v23", "v27", "v28")
 OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
 OAUTH_TOKEN = "https://oauth2.googleapis.com/token"
 SCOPE = "https://www.googleapis.com/auth/adwords"
@@ -87,11 +90,17 @@ class GoogleAdsClient:
             self._refresh_now()
         query = ("SELECT metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, "
                  f"metrics.conversions_value FROM customer WHERE segments.date = '{d}'")
-        url = f"{HOST}/customers/{self.customer_id}/googleAds:searchStream"
-        r = requests.post(url, headers=self._headers(), json={"query": query}, timeout=60)
-        if r.status_code == 401 and self.refresh:
-            self._refresh_now()
+        r = None
+        for ver in dict.fromkeys([v for v in (config.env("GOOGLE_ADS_API_VERSION"), _ok_version[0]) if v] + list(VERSIONS)):
+            url = f"{BASE}/{ver}/customers/{self.customer_id}/googleAds:searchStream"
             r = requests.post(url, headers=self._headers(), json={"query": query}, timeout=60)
+            if r.status_code == 401 and self.refresh:
+                self._refresh_now()
+                r = requests.post(url, headers=self._headers(), json={"query": query}, timeout=60)
+            if r.status_code == 404 and "json" not in r.headers.get("content-type", ""):
+                continue  # 종료된(또는 아직 없는) API 버전 → 다음 후보
+            _ok_version[0] = ver
+            break
         if r.status_code in (401, 403):
             raise PermissionError(f"Google Ads 토큰/권한 오류 {r.status_code}: {r.text[:300]} (개발자 토큰 액세스 수준·login-customer-id·계정 권한 확인)")
         if r.status_code >= 400:

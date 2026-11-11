@@ -53,6 +53,8 @@ jobs:
               d = (date.today() - timedelta(days=1)).isoformat()
               rep = ads_google.GoogleAdsClient(store).daily(d)
               summ.write(f"어제({d}) 리포트 확인: 광고비 {rep['ad_cost']:,.0f} · 노출 {rep['impressions']:,.0f} · 클릭 {rep['clicks']:,.0f}\n\n다음: `ops daily collect` 실행 → `ads=ok`\n")
+              print(f"::notice::리포트 OK cost={rep['ad_cost']:.0f} imp={rep['impressions']:.0f}")
           except Exception as e:
+              print("::warning::리포트 조회 실패 " + str(e).replace("\n"," ")[:300])
               summ.write(f"⚠ 토큰은 저장됐지만 리포트 조회 실패: `{e}`\n\n→ 개발자 토큰 **액세스 수준(탐색자 이상)**, `GOOGLE_ADS_CUSTOMER_ID`/`GOOGLE_ADS_LOGIN_CUSTOMER_ID`(하이픈 없이), 로그인 계정의 광고계정 권한을 확인하세요.\n")
           PY
