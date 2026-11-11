@@ -1,0 +1,45 @@
+name: data coverage (from 2025-01-01)
+
+# 소스·광고채널별로 DB 에 쌓인 날짜 범위와 빈 날짜 수를 로그와 Summary 에 출력 (읽기 전용)
+on:
+  workflow_dispatch:
+    inputs:
+      from_date:
+        description: "기준 시작일"
+        default: "2025-01-01"
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -q -r requirements.txt
+      - name: 커버리지
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, ".")
+          from collections import defaultdict
+          from datetime import date, timedelta
+          from cafe24_ops.store import Store
+          store = Store(); start = date.fromisoformat("${{ github.event.inputs.from_date }}"); end = date.today() - timedelta(days=1)
+          want = [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
+          have: dict[str, set] = defaultdict(set)
+          for r in store.rows("SELECT source, date FROM facts WHERE source <> 'ads' GROUP BY source, date"):
+              have[r["source"]].add(r["date"])
+          for r in store.rows("SELECT dims, date FROM facts WHERE source = 'ads' AND metric = 'ad_cost' GROUP BY dims, date"):
+              try: ch = json.loads(r["dims"] or "{}").get("channel", "?")
+              except Exception: ch = "?"
+              have[f"ads:{ch}"].add(r["date"])
+          lines = [f"## 데이터 커버리지 {start} ~ {end} (기대 {len(want)}일)", "", "| 소스 | 첫 날짜 | 마지막 날짜 | 보유 일수 | 빈 날짜 | 빈 날짜 예 |", "|---|---|---|---|---|---|"]
+          for src in sorted(have):
+              ds = have[src]; miss = [d for d in want if d not in ds]
+              lines.append(f"| {src} | {min(ds)} | {max(ds)} | {len([d for d in ds if d >= want[0]])} | {len(miss)} | {', '.join(miss[:4])}{' …' + miss[-1] if len(miss) > 4 else ''} |")
+          txt = "\n".join(lines); print(txt)
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write(txt + "\n")
+          PY
