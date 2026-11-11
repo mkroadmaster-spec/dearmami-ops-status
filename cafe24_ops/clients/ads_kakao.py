@@ -2,7 +2,7 @@
 
 필요: KAKAO_REST_API_KEY (앱 REST API 키), KAKAO_AD_ACCOUNT_ID (moment.kakao.com 광고계정 번호)
       KAKAO_BUSINESS_SECRET (REST API 키 수정 화면의 클라이언트 시크릿 중 **'비즈니스 인증' 줄** 코드; 활성화 ON 이면 필수)
-토큰: 비즈니스 토큰(액세스 6시간 + 리프레시) — DB(app_kv)에 저장하고 자동 갱신. 최초 1회는 kakao-authorize-url → kakao-token 워크플로.
+토큰: 비즈니스 토큰 — **리프레시 토큰 없음**, 재발급 없이 장기간 사용(장기 미사용 시 만료). DB(app_kv)에 저장, 401 이면 재승인. 최초 1회는 kakao-authorize-url → kakao-token 워크플로.
 조건: 비즈 앱 + 앱 소유자 본인인증 + [추가 기능 신청] 카카오모먼트 API 권한 승인 + [비즈니스 인증 > 동의항목] moment 항목 사용
       + 인가 시 로그인한 카카오계정이 광고계정 멤버. 리다이렉트 URI 는 [비즈니스 인증 리다이렉트 URI] 에 등록.
 인가: GET https://kauth.kakao.com/oauth/business/authorize?client_id&redirect_uri&response_type=code&scope=moment_management&resource_ids=moment:<광고계정>
@@ -89,7 +89,8 @@ class KakaoMomentClient:
             save_tokens(self.store, tok)
 
     def _get(self, path: str, params: dict[str, Any]) -> requests.Response:
-        if not self.access or (self.expires_at and time.time() >= self.expires_at):
+        # 비즈니스 토큰은 리프레시 토큰이 없고 재발급 없이 장기간 사용 (장기 미사용 시에만 만료) → 리프레시 토큰이 있을 때만 갱신
+        if self.refresh and (not self.access or (self.expires_at and time.time() >= self.expires_at)):
             self._refresh_now()
         h = {"Authorization": f"Bearer {self.access}", "adAccountId": self.account_id}
         wait = 5.2 - (time.time() - _last_call[0])  # 리포트 API 5초당 1회
@@ -98,6 +99,8 @@ class KakaoMomentClient:
         _last_call[0] = time.time()
         r = requests.get(f"{HOST}{path}", headers=h, params=params, timeout=30)
         if r.status_code == 401:
+            if not self.refresh:
+                raise PermissionError(f"카카오 비즈니스 토큰 만료/무효: {r.text[:200]} → 재승인 필요 (Actions 'kakao authorize url' → 'kakao token')")
             self._refresh_now()
             h["Authorization"] = f"Bearer {self.access}"
             r = requests.get(f"{HOST}{path}", headers=h, params=params, timeout=30)
