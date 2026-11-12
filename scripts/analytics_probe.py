@@ -36,6 +36,24 @@ def main() -> None:
                 print(f"[{k}] rows={len(v)}")
                 for row in v[:2]:
                     print("  ", json.dumps(row, ensure_ascii=False)[:600])
+    print("\n===== limit/offset 지원 여부 (/visitpaths/domains) =====")
+    for extra in ({"limit": 1000}, {"limit": 500}, {"limit": 100, "offset": 100}):
+        try:
+            data = an.get("/visitpaths/domains", d, d, **extra)
+            print(extra, "rows=", len(next((v for v in data.values() if isinstance(v, list)), [])))
+        except Exception as e:  # noqa: BLE001
+            print(extra, "ERROR", str(e)[:200])
+    print("\n===== 신규가입 수 후보 (Admin API) =====")
+    print("granted scopes:", store.kv_get("cafe24_token_scopes"))
+    c = an.c
+    for path, params in (("/admin/customersprivacy/count", {"created_start_date": d, "created_end_date": d}),
+                         ("/admin/customers/count", {"created_start_date": d, "created_end_date": d}),
+                         ("/admin/customersprivacy", {"created_start_date": d, "created_end_date": d, "limit": 1, "fields": "member_id,created_date"})):
+        try:
+            r = c._get_retry(f"{cc.base_url(c.mall_id)}{path}", params)
+            print(path, r.status_code, r.text[:300].replace(c.mall_id, "<mall>"))
+        except Exception as e:  # noqa: BLE001
+            print(path, "ERROR", str(e)[:200])
     print("\n===== DB cafe24_analytics 지표 (최근 7일 합계 · 행수) =====")
     start = (date.fromisoformat(d) - timedelta(days=6)).isoformat()
     rows = store.rows("SELECT metric, COUNT(*) AS n, SUM(value) AS s FROM facts WHERE source=? AND date>=? AND date<=? "
