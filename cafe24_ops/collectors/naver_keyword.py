@@ -7,6 +7,7 @@ from .base import Fact, PartialFailure, fact
 
 SOURCES = ("naver_keyword", "naver_place")
 METRICS = ("ad_cost", "impressions", "clicks", "conversions", "ad_revenue")
+TOP_KEYWORDS = 60  # 하루 비용 상위 키워드만 (2025-01~ 누적 시 DB 512MB 한도 고려)
 
 
 def is_configured() -> bool:
@@ -18,11 +19,12 @@ def collect(store, d: str) -> list[Fact]:
     out: list[Fact] = []
     errors = []
     try:
-        for r in c.keyword_stats(d):
-            if r["impressions"] <= 0:
-                continue
+        rows = [r for r in c.keyword_stats(d) if r["impressions"] > 0]
+        rows.sort(key=lambda r: (-r["ad_cost"], -r["clicks"], -r["impressions"]))
+        for r in rows[:TOP_KEYWORDS]:
             dims = {"keyword_id": r["keyword_id"], "keyword": r["keyword"], "adgroup": r["adgroup"], "campaign": r["campaign"]}
-            out += [fact(d, "naver_keyword", k, r[k], **dims) for k in METRICS]
+            # 0 인 지표는 저장 생략 (DB 무료 한도 절약 — 집계 시 없는 지표 = 0)
+            out += [fact(d, "naver_keyword", k, r[k], **dims) for k in METRICS if k == "impressions" or r[k]]
     except Exception as e:  # noqa: BLE001
         errors.append(f"keywords: {e}")
     try:

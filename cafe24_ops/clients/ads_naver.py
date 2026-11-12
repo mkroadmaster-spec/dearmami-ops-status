@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import date as _date, timedelta
 from typing import Any
 
 import requests
@@ -102,11 +103,29 @@ class NaverSAClient:
             groups["naver_place" if type_of.get(row.get("id")) == "PLACE" else "naver_powerlink"].append(row)
         return {k: _agg(v) for k, v in groups.items() if v}
 
+    def active_keywords(self, d: str) -> frozenset[str]:
+        """d 가 속한 달에 노출이 있었던 키워드 id — 달마다 1회 (전체 키워드 수천 개를 매일 조회하면 백필이 하루 3분씩 걸림)."""
+        x = _date.fromisoformat(d)
+        since = x.replace(day=1)
+        until = min((since + timedelta(days=32)).replace(day=1) - timedelta(days=1), _date.today() - timedelta(days=1))
+        until = max(until, x)
+
+        def load():
+            ids = [k["nccKeywordId"] for k in self.keywords()]
+            act = set()
+            for i in range(0, len(ids), 100):
+                data = self.get("/stats", {"ids": ",".join(ids[i:i + 100]), "fields": json.dumps(["impCnt"]),
+                                           "timeRange": json.dumps({"since": since.isoformat(), "until": until.isoformat()})})
+                act |= {r.get("id") for r in data.get("data", []) if (r.get("impCnt") or 0) > 0}
+            return frozenset(act)
+        return self._cached(f"active:{since}:{until}", load)
+
     def keyword_stats(self, d: str) -> list[dict[str, Any]]:
-        """키워드 단위 (광고 히스토리 → 네이버 검색)."""
+        """키워드 단위 (광고 히스토리 → 네이버 검색). 그 달 노출 있던 키워드만 일별 조회."""
         camp = {c["nccCampaignId"]: c.get("name", "") for c in self.campaigns()}
         grp = {g["nccAdgroupId"]: g for g in self.adgroups()}
-        kw = {k["nccKeywordId"]: k for k in self.keywords()}
+        active = self.active_keywords(d)
+        kw = {k["nccKeywordId"]: k for k in self.keywords() if k["nccKeywordId"] in active}
         out = []
         for row in self.stats(list(kw), d):
             k = kw.get(row.get("id"), {})
