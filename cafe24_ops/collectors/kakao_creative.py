@@ -48,8 +48,10 @@ def _load(store, k: "ads_kakao.KakaoMomentClient", d: str) -> None:
     if any((r.get("dimensions") or {}).get("campaign_id") for r in crow):
         active = {int(r["dimensions"]["campaign_id"]) for r in crow
                   if (r.get("dimensions") or {}).get("campaign_id") and float((r.get("metrics") or {}).get("imp", 0) or 0) > 0}
-    else:  # 캠페인 구분 행이 없으면 전체 캠페인을 대상으로 (느리지만 누락 없음)
+    elif crow:  # 행은 있는데 캠페인 구분이 없으면 전체 캠페인을 대상으로 (느리지만 누락 없음)
         active = set(names)
+    else:  # 그 구간 집행 없음
+        active = set()
     info: dict[str, dict] = {}
     for cid in active:
         for c in _creatives_of(k, cid):

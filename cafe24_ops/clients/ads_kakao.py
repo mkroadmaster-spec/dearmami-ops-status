@@ -22,6 +22,7 @@ REQUIRED_ENV = ("KAKAO_REST_API_KEY", "KAKAO_AD_ACCOUNT_ID")
 HOST = "https://apis.moment.kakao.com/openapi/v4"
 KAUTH = "https://kauth.kakao.com/oauth/business"
 _last_call = [0.0]
+_batch: dict[str, int] = {}  # 리포트 종류별 ID 묶음 크기 (한도 초과 시 줄여 기억)
 KV_ACCESS, KV_REFRESH, KV_EXPIRES = "kakao_access_token", "kakao_refresh_token", "kakao_access_expires_at"
 
 
@@ -148,22 +149,29 @@ class KakaoMomentClient:
         r = self._get(f"/creatives/{creative_id}", {})
         return r.json() if r.status_code == 200 else {}
 
-    def report_rows(self, kind: str, ids: list, start: str, end: str, batch: int = 100) -> list[dict[str, Any]]:
-        """kind: campaigns | creatives → /{kind}/report 일자·대상별 행 (start/end 는 YYYY-MM-DD, 31일 이내)."""
+    def report_rows(self, kind: str, ids: list, start: str, end: str) -> list[dict[str, Any]]:
+        """kind: campaigns | creatives → /{kind}/report 일자·대상별 행 (start/end 는 YYYY-MM-DD, 31일 이내).
+        ID 개수 한도(78003)는 문서에 없음 → 반으로 줄여가며 찾고 실행 중 기억. 429(요청 초과)는 쉬었다 재시도."""
         key = {"campaigns": "campaignId", "creatives": "creativeId"}[kind]
         out: list[dict[str, Any]] = []
-        i = 0
+        i, tries = 0, 0
         while i < len(ids):
+            batch = _batch.get(kind, 100)
             chunk = ids[i:i + batch]
             r = self._get(f"/{kind}/report", {key: ",".join(map(str, chunk)), "start": start.replace("-", ""),
                                                "end": end.replace("-", ""), "metricsGroup": "BASIC,PIXEL_SDK_CONVERSION"})
-            if r.status_code == 400 and batch > 20:  # 한 번에 보낼 수 있는 ID 수 초과로 보이면 작게 나눠 재시도
-                batch = 20
+            if r.status_code == 400 and "78003" in r.text and batch > 1:
+                _batch[kind] = max(1, batch // 2)
+                continue
+            if r.status_code == 429 and tries < 6:
+                tries += 1
+                time.sleep(20 * tries)
                 continue
             if r.status_code >= 400:
                 raise RuntimeError(f"Kakao {kind}/report {r.status_code}: {r.text[:200]}")
             out += r.json().get("data", [])
             i += len(chunk)
+            tries = 0
         return out
 
 
