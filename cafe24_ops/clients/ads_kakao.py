@@ -22,6 +22,7 @@ REQUIRED_ENV = ("KAKAO_REST_API_KEY", "KAKAO_AD_ACCOUNT_ID")
 HOST = "https://apis.moment.kakao.com/openapi/v4"
 KAUTH = "https://kauth.kakao.com/oauth/business"
 _last_call = [0.0]
+_interval = [5.2]  # 리포트 호출 최소 간격 (429 시 자동으로 늘어남)
 _batch: dict[str, int] = {}  # 리포트 종류별 ID 묶음 크기 (한도 초과 시 줄여 기억)
 KV_ACCESS, KV_REFRESH, KV_EXPIRES = "kakao_access_token", "kakao_refresh_token", "kakao_access_expires_at"
 
@@ -95,7 +96,7 @@ class KakaoMomentClient:
             self._refresh_now()
         h = {"Authorization": f"Bearer {self.access}", "adAccountId": self.account_id}
         if "/report" in path:  # 리포트 API 5초당 1회 (목록·상세 API 는 제한이 느슨 → 짧게만 쉰다)
-            wait = 5.2 - (time.time() - _last_call[0])
+            wait = _interval[0] - (time.time() - _last_call[0])
             if wait > 0:
                 time.sleep(wait)
             _last_call[0] = time.time()
@@ -105,8 +106,10 @@ class KakaoMomentClient:
         for tries in range(1, 7):  # 429 요청 초과 → 쉬었다 재시도
             if r.status_code != 429:
                 break
-            print(f"[kakao] {path.split('?')[0]} 429 → {20 * tries}s 대기", flush=True)
-            time.sleep(20 * tries)
+            if "/report" in path:  # 429 가 나면 이후 리포트 간격을 늘려 다시 안 걸리게 (문서상 5초지만 실제론 더 빡빡)
+                _interval[0] = min(_interval[0] * 1.5, 30.0)
+            print(f"[kakao] {path.split('?')[0]} 429 → {15 * tries}s 대기 (리포트 간격 {_interval[0]:.0f}s)", flush=True)
+            time.sleep(15 * tries)
             _last_call[0] = time.time()
             r = requests.get(f"{HOST}{path}", headers=h, params=params, timeout=30)
         if r.status_code == 401:
