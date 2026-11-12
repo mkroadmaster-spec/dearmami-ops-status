@@ -85,11 +85,10 @@ class GoogleAdsClient:
             h["login-customer-id"] = self.login_customer_id
         return h
 
-    def daily(self, d: str) -> dict[str, float]:
+    def search(self, query: str) -> list[dict[str, Any]]:
+        """GAQL 조회 → 결과 행 목록 (버전 자동 전환·토큰 갱신 포함)."""
         if self.refresh and (not self.access or (self.expires_at and time.time() >= self.expires_at)):
             self._refresh_now()
-        query = ("SELECT metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, "
-                 f"metrics.conversions_value FROM customer WHERE segments.date = '{d}'")
         r = None
         for ver in dict.fromkeys([v for v in (config.env("GOOGLE_ADS_API_VERSION"), _ok_version[0]) if v] + list(VERSIONS)):
             url = f"{BASE}/{ver}/customers/{self.customer_id}/googleAds:searchStream"
@@ -104,14 +103,18 @@ class GoogleAdsClient:
         if r.status_code in (401, 403):
             raise PermissionError(f"Google Ads 토큰/권한 오류 {r.status_code}: {r.text[:300]} (개발자 토큰 액세스 수준·login-customer-id·계정 권한 확인)")
         if r.status_code >= 400:
-            raise RuntimeError(f"Google Ads {r.status_code}: {r.text[:300]}")
+            raise RuntimeError(f"Google Ads {r.status_code}: {r.text[:500]}")
+        return [row for batch in r.json() for row in batch.get("results", [])]
+
+    def daily(self, d: str) -> dict[str, float]:
+        query = ("SELECT metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, "
+                 f"metrics.conversions_value FROM customer WHERE segments.date = '{d}'")
         agg = {"ad_cost": 0.0, "impressions": 0.0, "clicks": 0.0, "conversions": 0.0, "ad_revenue": 0.0}
-        for batch in r.json():
-            for row in batch.get("results", []):
-                m = row.get("metrics", {})
-                agg["ad_cost"] += float(m.get("costMicros", 0)) / 1_000_000
-                agg["impressions"] += float(m.get("impressions", 0))
-                agg["clicks"] += float(m.get("clicks", 0))
-                agg["conversions"] += float(m.get("conversions", 0))
-                agg["ad_revenue"] += float(m.get("conversionsValue", 0))
+        for row in self.search(query):
+            m = row.get("metrics", {})
+            agg["ad_cost"] += float(m.get("costMicros", 0)) / 1_000_000
+            agg["impressions"] += float(m.get("impressions", 0))
+            agg["clicks"] += float(m.get("clicks", 0))
+            agg["conversions"] += float(m.get("conversions", 0))
+            agg["ad_revenue"] += float(m.get("conversionsValue", 0))
         return agg
