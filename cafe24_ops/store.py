@@ -58,20 +58,38 @@ class Store:
     def _q(self, sql: str) -> str:
         return sql.replace("?", "%s") if self.is_pg else sql
 
-    def exec(self, sql: str, params: Iterable[Any] = ()) -> None:
+    def _cursor_do(self, fn):
+        """Neon 은 오래 쉰 연결을 끊는다 (긴 API 호출 뒤 첫 쿼리에서 'connection is closed') → 1회 재연결 후 재시도."""
         with self._lock:
-            cur = self.conn.cursor()
-            cur.execute(self._q(sql), tuple(params))
-            cur.close()
+            for attempt in (0, 1):
+                try:
+                    cur = self.conn.cursor()
+                    try:
+                        return fn(cur)
+                    finally:
+                        try:
+                            cur.close()
+                        except Exception:  # noqa: BLE001
+                            pass
+                except Exception as e:  # noqa: BLE001
+                    if not self.is_pg or attempt or type(e).__name__ not in ("OperationalError", "InterfaceError"):
+                        raise
+                    import psycopg  # type: ignore
+                    try:
+                        self.conn.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    self.conn = psycopg.connect(self.url, autocommit=True)
+
+    def exec(self, sql: str, params: Iterable[Any] = ()) -> None:
+        self._cursor_do(lambda cur: cur.execute(self._q(sql), tuple(params)))
 
     def rows(self, sql: str, params: Iterable[Any] = ()) -> list[dict[str, Any]]:
-        with self._lock:
-            cur = self.conn.cursor()
+        def go(cur):
             cur.execute(self._q(sql), tuple(params))
             cols = [d[0] for d in cur.description]
-            out = [dict(zip(cols, r)) for r in cur.fetchall()]
-            cur.close()
-        return out
+            return [dict(zip(cols, r)) for r in cur.fetchall()]
+        return self._cursor_do(go)
 
     def _upsert(self, table: str, cols: list[str], keys: list[str], values: list[tuple]) -> None:
         if not values:
@@ -79,10 +97,7 @@ class Store:
         ph = ",".join("?" * len(cols))
         upd = ",".join(f"{c}=excluded.{c}" for c in cols if c not in keys)
         sql = f"INSERT INTO {table} ({','.join(cols)}) VALUES ({ph}) ON CONFLICT ({','.join(keys)}) DO UPDATE SET {upd}"
-        with self._lock:
-            cur = self.conn.cursor()
-            cur.executemany(self._q(sql), values)
-            cur.close()
+        self._cursor_do(lambda cur: cur.executemany(self._q(sql), values))
 
     # ---- facts -----------------------------------------------------------
     def upsert_facts(self, facts: Iterable[dict[str, Any]]) -> int:

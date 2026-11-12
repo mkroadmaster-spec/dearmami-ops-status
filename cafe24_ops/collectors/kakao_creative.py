@@ -36,14 +36,22 @@ def _creatives_of(k: "ads_kakao.KakaoMomentClient", cid: int) -> list[dict]:
     return _tree[cid]
 
 
+def _log(t0: float, msg: str) -> None:
+    import time
+    print(f"[kakao_creative] {time.time() - t0:5.0f}s {msg}", flush=True)
+
+
 def _load(store, k: "ads_kakao.KakaoMomentClient", d: str) -> None:
     global _camps
+    import time
+    t0 = time.time()
     from ..pipeline import yesterday
     end = max(min(_date.fromisoformat(d) + timedelta(days=WINDOW - 1), _date.fromisoformat(yesterday())), _date.fromisoformat(d))
     s, e = d, end.isoformat()
     if _camps is None:
         _camps = k.campaigns()
     names = {c["id"]: c.get("name", "") for c in _camps}
+    _log(t0, f"{s}~{e} 캠페인 {len(names)}개")
     crow = k.report_rows("campaigns", list(names), s, e)
     if any((r.get("dimensions") or {}).get("campaign_id") for r in crow):
         active = {int(r["dimensions"]["campaign_id"]) for r in crow
@@ -52,11 +60,14 @@ def _load(store, k: "ads_kakao.KakaoMomentClient", d: str) -> None:
         active = set(names)
     else:  # 그 구간 집행 없음
         active = set()
+    _log(t0, f"캠페인 리포트 {len(crow)}행 → 집행 캠페인 {len(active)}개")
     info: dict[str, dict] = {}
     for cid in active:
         for c in _creatives_of(k, cid):
             info[str(c["id"])] = {"name": c["name"], "adgroup": c["adgroup"], "campaign": names.get(cid, "")}
+    _log(t0, f"소재 {len(info)}개 목록")
     rows = k.report_rows("creatives", list(info), s, e) if info else []
+    _log(t0, f"소재 리포트 {len(rows)}행")
     meta = json.loads(store.kv_get(KV_META) or "{}")
     day = _date.fromisoformat(s)
     while day <= end:

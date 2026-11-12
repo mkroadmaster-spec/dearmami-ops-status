@@ -102,6 +102,13 @@ class KakaoMomentClient:
         else:
             time.sleep(0.25)
         r = requests.get(f"{HOST}{path}", headers=h, params=params, timeout=30)
+        for tries in range(1, 7):  # 429 요청 초과 → 쉬었다 재시도
+            if r.status_code != 429:
+                break
+            print(f"[kakao] {path.split('?')[0]} 429 → {20 * tries}s 대기", flush=True)
+            time.sleep(20 * tries)
+            _last_call[0] = time.time()
+            r = requests.get(f"{HOST}{path}", headers=h, params=params, timeout=30)
         if r.status_code == 401:
             if not self.refresh:
                 raise PermissionError(f"카카오 비즈니스 토큰 만료/무효: {r.text[:200]} → 재승인 필요 (Actions 'kakao authorize url' → 'kakao token')")
@@ -151,10 +158,10 @@ class KakaoMomentClient:
 
     def report_rows(self, kind: str, ids: list, start: str, end: str) -> list[dict[str, Any]]:
         """kind: campaigns | creatives → /{kind}/report 일자·대상별 행 (start/end 는 YYYY-MM-DD, 31일 이내).
-        ID 개수 한도(78003)는 문서에 없음 → 반으로 줄여가며 찾고 실행 중 기억. 429(요청 초과)는 쉬었다 재시도."""
+        ID 개수 한도(78003)는 문서에 없음 → 반으로 줄여가며 찾고 실행 중 기억. 429 는 _get 이 재시도."""
         key = {"campaigns": "campaignId", "creatives": "creativeId"}[kind]
         out: list[dict[str, Any]] = []
-        i, tries = 0, 0
+        i = 0
         while i < len(ids):
             batch = _batch.get(kind, 100)
             chunk = ids[i:i + batch]
@@ -162,16 +169,12 @@ class KakaoMomentClient:
                                                "end": end.replace("-", ""), "metricsGroup": "BASIC,PIXEL_SDK_CONVERSION"})
             if r.status_code == 400 and "78003" in r.text and batch > 1:
                 _batch[kind] = max(1, batch // 2)
-                continue
-            if r.status_code == 429 and tries < 6:
-                tries += 1
-                time.sleep(20 * tries)
+                print(f"[kakao] {kind}/report ID 묶음 {batch} → {_batch[kind]}", flush=True)
                 continue
             if r.status_code >= 400:
                 raise RuntimeError(f"Kakao {kind}/report {r.status_code}: {r.text[:200]}")
             out += r.json().get("data", [])
             i += len(chunk)
-            tries = 0
         return out
 
 
