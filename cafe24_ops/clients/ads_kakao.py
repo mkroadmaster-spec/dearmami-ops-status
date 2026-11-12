@@ -152,6 +152,10 @@ class KakaoMomentClient:
     def creatives(self, ad_group_id: int) -> list[dict[str, Any]]:
         return self._content("/creatives", {"adGroupId": ad_group_id})
 
+    def ad_group_detail(self, ad_group_id: int | str) -> dict[str, Any]:
+        r = self._get(f"/adGroups/{ad_group_id}", {})
+        return r.json() if r.status_code == 200 else {}
+
     def creative_detail(self, creative_id: int | str) -> dict[str, Any]:
         r = self._get(f"/creatives/{creative_id}", {})
         return r.json() if r.status_code == 200 else {}
