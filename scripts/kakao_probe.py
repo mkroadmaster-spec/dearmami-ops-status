@@ -1,4 +1,4 @@
-"""카카오모먼트 소재 구조 진단 — 소재 단위 리포트·소재 목록/상세의 응답 모양 (금액 값은 출력하지 않음)."""
+"""카카오모먼트 소재 진단 — 켜진 캠페인/광고그룹/소재 수, 소재 리포트 행 구조(소재별 분리 여부)."""
 from __future__ import annotations
 
 import json
@@ -14,48 +14,28 @@ from cafe24_ops.store import Store  # noqa: E402
 k = KakaoMomentClient(Store())
 d = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
 d7 = (date.today() - timedelta(days=7)).strftime("%Y%m%d")
+J = lambda r: r.json().get("content", []) if r.status_code == 200 else (print("ERR", r.status_code, r.text[:300]) or [])
 
-
-def show(title, path, params, n=2):
-    print(f"\n===== {title} {path} {params} =====")
-    r = k._get(path, params)
-    print("status", r.status_code)
-    try:
+camps = J(k._get("/campaigns", {}))
+on = [c for c in camps if c.get("config") == "ON"]
+print("campaigns:", len(camps), "ON:", len(on))
+ids, fmts = [], []
+for c in on[:6]:
+    for g in J(k._get("/adGroups", {"campaignId": c["id"]})):
+        if g.get("config") != "ON":
+            continue
+        crs = [x for x in J(k._get("/creatives", {"adGroupId": g["id"]})) if x.get("config") == "ON"]
+        ids += [x["id"] for x in crs]
+print("active creatives sampled:", len(ids))
+if ids:
+    det = k._get(f"/creatives/{ids[0]}", {}).json()
+    print("format:", det.get("format"), "| image:", json.dumps(det.get("image"), ensure_ascii=False)[:200], "| thumb:", json.dumps(det.get("thumbnailImage"), ensure_ascii=False)[:200])
+    for ex in ({}, {"dimension": "CREATIVE"}):
+        r = k._get("/creatives/report", {"creativeId": ",".join(map(str, ids[:20])), "start": d7, "end": d, "metricsGroup": "BASIC,PIXEL_SDK_CONVERSION", **ex})
+        print(f"\n== creatives/report {ex} status {r.status_code}")
         j = r.json()
-    except Exception:  # noqa: BLE001
-        print(r.text[:300]); return None
-    if isinstance(j, dict):
-        print("keys:", list(j.keys()))
-        if r.status_code >= 400:
-            print("error:", json.dumps(j, ensure_ascii=False)[:500])
-        rows = j.get("data") or j.get("content") or []
-    else:
-        rows = j
-    print("rows:", len(rows) if isinstance(rows, list) else type(rows).__name__)
-    for x in (rows[:n] if isinstance(rows, list) else [rows]):
-        print("  ", json.dumps(x, ensure_ascii=False)[:700])
-    return rows
-
-
-for ex in ({"timeUnit": "DAY"}, {"dimension": "CREATIVE_FORMAT"}):
-    show("adGroups 리포트", "/adGroups/report", {"adGroupId": "", "start": d7, "end": d, "metricsGroup": "BASIC", **ex}, 1)
-rep = show("소재 단위 리포트(하루)", "/adAccounts/report", {"level": "CREATIVE", "start": d, "end": d, "metricsGroup": "BASIC,PIXEL_SDK_CONVERSION"})
-show("소재 단위 리포트(7일 · 일자 구분?)", "/adAccounts/report", {"level": "CREATIVE", "start": d7, "end": d, "metricsGroup": "BASIC", "timeUnit": "DAY"}, 3)
-camps = show("캠페인 목록", "/campaigns", {}, 1) or []
-cid = camps[0].get("id") if camps and isinstance(camps[0], dict) else None
-if cid:
-    groups = show("광고그룹 목록", "/adGroups", {"campaignId": cid}, 1) or []
-    gid = groups[0].get("id") if groups and isinstance(groups[0], dict) else None
-    if gid:
-        crs = show("소재 목록", "/creatives", {"adGroupId": gid}, 1) or []
-        crid = crs[0].get("id") if crs and isinstance(crs[0], dict) else None
-        if crid:
-            show("소재 상세", f"/creatives/{crid}", {}, 1)
-
-        if crid:
-            r = k._get(f"/creatives/{crid}", {}).json()
-            print("image:", json.dumps(r.get("image"), ensure_ascii=False)[:300], "| thumb:", json.dumps(r.get("thumbnailImage"), ensure_ascii=False)[:300], "| format:", r.get("format"))
-            ids = ",".join(str(c["id"]) for c in crs[:20])
-            for ex in ({}, {"timeUnit": "DAY"}):
-                show("소재 리포트", "/creatives/report", {"creativeId": ids, "start": d7, "end": d, "metricsGroup": "BASIC", **ex}, 3)
-            show("소재 리포트(단건)", "/creatives/report", {"creativeId": crid, "start": d7, "end": d, "metricsGroup": "BASIC"}, 3)
+        rows = j.get("data", []) if isinstance(j, dict) else []
+        print("rows:", len(rows), "| err:" if r.status_code >= 400 else "", json.dumps(j, ensure_ascii=False)[:300] if r.status_code >= 400 else "")
+        for x in rows[:3]:
+            m = x.get("metrics", {})
+            print("  ", json.dumps({**x, "metrics": sorted(m.keys())}, ensure_ascii=False)[:500])

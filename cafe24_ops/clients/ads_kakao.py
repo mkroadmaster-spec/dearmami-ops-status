@@ -93,10 +93,13 @@ class KakaoMomentClient:
         if self.refresh and (not self.access or (self.expires_at and time.time() >= self.expires_at)):
             self._refresh_now()
         h = {"Authorization": f"Bearer {self.access}", "adAccountId": self.account_id}
-        wait = 5.2 - (time.time() - _last_call[0])  # 리포트 API 5초당 1회
-        if wait > 0:
-            time.sleep(wait)
-        _last_call[0] = time.time()
+        if "/report" in path:  # 리포트 API 5초당 1회 (목록·상세 API 는 제한이 느슨 → 짧게만 쉰다)
+            wait = 5.2 - (time.time() - _last_call[0])
+            if wait > 0:
+                time.sleep(wait)
+            _last_call[0] = time.time()
+        else:
+            time.sleep(0.25)
         r = requests.get(f"{HOST}{path}", headers=h, params=params, timeout=30)
         if r.status_code == 401:
             if not self.refresh:
