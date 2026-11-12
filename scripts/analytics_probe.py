@@ -71,8 +71,13 @@ def db_size() -> None:
     if s.is_pg:
         r = s.rows("SELECT pg_size_pretty(pg_database_size(current_database())) AS size")
         print("DB size:", r[0]["size"])
-    for r in s.rows("SELECT source, COUNT(*) AS n FROM facts GROUP BY source ORDER BY n DESC"):
-        print(f"  facts {r['source']:<20} {r['n']:>10,}")
+    for r in s.rows("SELECT source, COUNT(*) AS n, COUNT(DISTINCT date) AS days, MIN(date) AS lo, MAX(date) AS hi "
+                    "FROM facts GROUP BY source ORDER BY n DESC"):
+        print(f"  facts {r['source']:<20} {r['n']:>10,}  days={r['days']} {r['lo']}~{r['hi']}")
+    if s.is_pg:
+        for r in s.rows("SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) AS sz FROM pg_catalog.pg_statio_user_tables "
+                        "ORDER BY pg_total_relation_size(relid) DESC LIMIT 6"):
+            print(f"  table {r['relname']:<20} {r['sz']}")
 
 
 if __name__ == "__main__":
