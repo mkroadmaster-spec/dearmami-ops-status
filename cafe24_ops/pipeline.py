@@ -41,8 +41,10 @@ def run_day(store, d: str, mode: str | None = None, skip: set[str] | None = None
                     continue
                 facts = c.collect(store, d)
                 status, msg = "ok", f"{len(facts)}건"
-            for src in c.all_sources():
-                store.delete_facts(d, src)
+            # ADS_ONLY(일부 광고 채널만 재수집) 일 때 ads 는 지우지 않고 덮어쓰기만 → 다른 채널 데이터 보존
+            if not (c.name == "ads" and config.env("ADS_ONLY")):
+                for src in c.all_sources():
+                    store.delete_facts(d, src)
             store.upsert_facts(facts)
         except PartialFailure as pf:
             store.upsert_facts(pf.facts)  # delete 없이 upsert 만

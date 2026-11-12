@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from .. import config
 from ..clients import ads_criteo, ads_gfa, ads_google, ads_kakao, ads_meta, ads_naver, manual_csv
 from .base import Fact, PartialFailure, fact
 
@@ -71,6 +72,11 @@ def collect(store, d: str) -> list[Fact]:
         row = manual_csv.day(ch, d)
         if row:
             out += _emit(d, ch, row)
+
+    only = {s.strip() for s in config.env("ADS_ONLY").split(",") if s.strip()}
+    if only:  # 특정 채널만 백필 (예: ADS_ONLY=naver_sa) — 나머지 채널 API 호출 생략
+        jobs = [(n, j) for n, j in jobs if n in only]
+        out = [f for f in out if f.get("dims", {}).get("channel") in only]
 
     for name, job in jobs:
         try:
