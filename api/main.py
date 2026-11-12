@@ -188,9 +188,9 @@ def api_ads_keywords(date_from: str | None = F, date_to: str | None = T, channel
 
 
 @app.get("/api/creatives/overview")
-def api_creatives(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_creatives(date_from: str | None = F, date_to: str | None = T, channel: str = "meta") -> dict[str, Any]:
     f, t = _range(date_from, date_to)
-    rows = breakdown.creatives_overview(store(), f, t)
+    rows = breakdown.creatives_overview(store(), f, t, channel)
     cost = sum(r["ad_cost"] or 0 for r in rows); conv = sum(r["ad_conversions"] or 0 for r in rows)
     clicks = sum(r["ad_clicks"] or 0 for r in rows); impr = sum(r["ad_impressions"] or 0 for r in rows)
     best = max(rows, key=lambda r: (r["ad_conversions"] or 0, r["roas"] or 0), default=None)
@@ -201,9 +201,9 @@ def api_creatives(date_from: str | None = F, date_to: str | None = T) -> dict[st
 
 
 @app.get("/api/creatives/trend")
-def api_creatives_trend(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_creatives_trend(date_from: str | None = F, date_to: str | None = T, channel: str = "meta") -> dict[str, Any]:
     f, t = _range(date_from, date_to)
-    return breakdown.creative_trend(store(), f, t)
+    return breakdown.creative_trend(store(), f, t, channel=channel)
 
 
 @app.get("/api/ga4/site")

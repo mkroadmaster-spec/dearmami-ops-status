@@ -7,7 +7,7 @@ from cafe24_ops.collectors import REGISTRY, channel_status
 from cafe24_ops.etl.aggregate import compare, kpis_from_facts, previous_range, sum_range
 from cafe24_ops.store import Store
 
-EXPECTED_SOURCES = {"cafe24", "cafe24_analytics", "ga4", "ads", "creative", "naver_keyword", "competitor"}
+EXPECTED_SOURCES = {"cafe24", "cafe24_analytics", "ga4", "ads", "creative", "google_creative", "naver_keyword", "competitor"}
 
 
 @pytest.fixture

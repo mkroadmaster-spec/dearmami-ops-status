@@ -66,5 +66,17 @@ def main() -> None:
         print(f"  {r['metric']:<28} sum={r['s']}")
 
 
+def db_size() -> None:
+    s = Store()
+    if s.is_pg:
+        r = s.rows("SELECT pg_size_pretty(pg_database_size(current_database())) AS size")
+        print("DB size:", r[0]["size"])
+    for r in s.rows("SELECT source, COUNT(*) AS n FROM facts GROUP BY source ORDER BY n DESC"):
+        print(f"  facts {r['source']:<20} {r['n']:>10,}")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "size":
+        db_size()
+    else:
+        main()

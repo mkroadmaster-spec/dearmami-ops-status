@@ -118,3 +118,73 @@ class GoogleAdsClient:
             agg["conversions"] += float(m.get("conversions", 0))
             agg["ad_revenue"] += float(m.get("conversionsValue", 0))
         return agg
+
+    # ---- 소재(광고·애셋그룹) 단위 -------------------------------------------------
+    _MET = "metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversions_value"
+
+    @staticmethod
+    def _m(row: dict[str, Any]) -> dict[str, float]:
+        m = row.get("metrics", {})
+        return {"ad_cost": float(m.get("costMicros", 0)) / 1_000_000, "impressions": float(m.get("impressions", 0)),
+                "clicks": float(m.get("clicks", 0)), "conversions": float(m.get("conversions", 0)),
+                "ad_revenue": float(m.get("conversionsValue", 0))}
+
+    def creative_rows(self, start: str, end: str) -> list[dict[str, Any]]:
+        """기간 내 일자별 소재 성과 — 일반 광고(ad_group_ad) + 실적 최대화 애셋그룹(asset_group). 노출 0 제외."""
+        out: list[dict[str, Any]] = []
+        q = (f"SELECT segments.date, ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.ad.type, "
+             f"ad_group_ad.ad.responsive_search_ad.headlines, campaign.name, campaign.advertising_channel_type, ad_group.name, {self._MET} "
+             f"FROM ad_group_ad WHERE segments.date BETWEEN '{start}' AND '{end}' AND metrics.impressions > 0")
+        for r in self.search(q):
+            ad = r.get("adGroupAd", {}).get("ad", {})
+            heads = [h.get("text", "") for h in (ad.get("responsiveSearchAd", {}) or {}).get("headlines", [])][:2]
+            out.append({"date": r["segments"]["date"], "ad_id": str(ad.get("id", "")), "kind": "ad",
+                        "ad_name": ad.get("name") or (" | ".join(h for h in heads if h)) or r.get("adGroup", {}).get("name", ""),
+                        "ad_type": ad.get("type", ""), "campaign": r.get("campaign", {}).get("name", ""),
+                        "campaign_type": r.get("campaign", {}).get("advertisingChannelType", ""),
+                        "adset": r.get("adGroup", {}).get("name", ""), **self._m(r)})
+        q = (f"SELECT segments.date, asset_group.id, asset_group.name, campaign.name, {self._MET} FROM asset_group "
+             f"WHERE segments.date BETWEEN '{start}' AND '{end}' AND metrics.impressions > 0")
+        for r in self.search(q):
+            ag = r.get("assetGroup", {})
+            out.append({"date": r["segments"]["date"], "ad_id": f"ag{ag.get('id', '')}", "kind": "asset_group",
+                        "ad_name": ag.get("name", ""), "ad_type": "PERFORMANCE_MAX", "campaign": r.get("campaign", {}).get("name", ""),
+                        "campaign_type": "PERFORMANCE_MAX", "adset": "애셋그룹", **self._m(r)})
+        return out
+
+    # 대표 이미지 우선순위 (가로형 → 정사각 → 세로 → 유튜브 썸네일 → 로고)
+    _IMG_ORDER = ("MARKETING_IMAGE", "SQUARE_MARKETING_IMAGE", "PORTRAIT_MARKETING_IMAGE", "TALL_PORTRAIT_MARKETING_IMAGE",
+                  "YOUTUBE_VIDEO", "LOGO", "LANDSCAPE_LOGO")
+
+    @classmethod
+    def _pick(cls, cands: list[tuple[str, str]]) -> str:
+        cands.sort(key=lambda x: cls._IMG_ORDER.index(x[0]) if x[0] in cls._IMG_ORDER else 99)
+        return cands[0][1] if cands else ""
+
+    @staticmethod
+    def _asset_url(a: dict[str, Any]) -> str:
+        if a.get("type") == "YOUTUBE_VIDEO":
+            vid = (a.get("youtubeVideoAsset") or {}).get("youtubeVideoId")
+            return f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ""
+        return ((a.get("imageAsset") or {}).get("fullSize") or {}).get("url", "")
+
+    def creative_thumbnails(self) -> dict[str, str]:
+        """{ad_id 또는 'ag'+asset_group_id: 대표 이미지 URL} — 이미지·유튜브 애셋 연결 전체(제거 포함) 1회 조회."""
+        types = "', '".join(self._IMG_ORDER)
+        cands: dict[str, list[tuple[str, str]]] = {}
+        q = (f"SELECT ad_group_ad_asset_view.ad_group_ad, ad_group_ad_asset_view.field_type, asset.type, "
+             f"asset.image_asset.full_size.url, asset.youtube_video_asset.youtube_video_id FROM ad_group_ad_asset_view "
+             f"WHERE ad_group_ad_asset_view.field_type IN ('{types}')")
+        for r in self.search(q):
+            ad_id = r["adGroupAdAssetView"].get("adGroupAd", "").rsplit("~", 1)[-1]
+            url = self._asset_url(r.get("asset", {}))
+            if ad_id and url:
+                cands.setdefault(ad_id, []).append((r["adGroupAdAssetView"].get("fieldType", ""), url))
+        q = (f"SELECT asset_group.id, asset_group_asset.field_type, asset.type, asset.image_asset.full_size.url, "
+             f"asset.youtube_video_asset.youtube_video_id FROM asset_group_asset WHERE asset_group_asset.field_type IN ('{types}')")
+        for r in self.search(q):
+            key = f"ag{r.get('assetGroup', {}).get('id', '')}"
+            url = self._asset_url(r.get("asset", {}))
+            if url:
+                cands.setdefault(key, []).append((r["assetGroupAsset"].get("fieldType", ""), url))
+        return {k: self._pick(v) for k, v in cands.items()}

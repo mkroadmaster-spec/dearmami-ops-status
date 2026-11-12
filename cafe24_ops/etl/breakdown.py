@@ -120,14 +120,14 @@ def best_products(store, f: str, t: str, top: int = 10) -> list[dict[str, Any]]:
 def cart_funnel(store, f: str, t: str, min_views: int = 50) -> dict[str, Any]:
     """상품별 조회→담기→주문. 담기율은 기간 합계(담기÷조회)로 재계산(일자별 비율 합산 금지).
     병목 판정은 중위값의 절반 미만. 담기 0 = '담을 수 없는 상태' 신호."""
-    g = _group(store, f, t, "cafe24_analytics", ("product_no", "product"))
+    g = _group(store, f, t, "cafe24_analytics", ("product_no",))  # 상품명은 날마다 달라질 수 있어 상품번호로만 묶는다
     rows = []
     for k, v in g.items():
         views = v.get("product_views", 0)
         if views < min_views:
             continue
         carts, orders = v.get("product_cart_adds", 0), v.get("product_orders", 0)
-        rows.append({"product_no": k[0], "product": k[1], "views": views, "cart_adds": carts, "orders": orders,
+        rows.append({"product_no": k[0], "product": v["_dims"].get("product") or k[0], "views": views, "cart_adds": carts, "orders": orders,
                      "cart_rate": carts / views * 100 if views else None,
                      "order_rate": orders / carts * 100 if carts else None})
     rates = [r["cart_rate"] for r in rows if r["cart_rate"] is not None]
@@ -196,8 +196,9 @@ def shop_analytics(store, f: str, t: str, pf: str | None = None, pt: str | None 
                                _top_dim(store, pf, pt, "cafe24_analytics", "adpath_visits", "ad_channel", 50, "visits"), "ad_channel", "visits"),
         "pages": _top_dim(store, f, t, "cafe24_analytics", "page_views", "path", 10, "views"),
         "members": member_rows,
-        "product_sales": sorted([{"product_no": k[0], "product": k[1], "orders": v.get("product_orders", 0), "qty": v.get("product_qty", 0)}
-                                 for k, v in _group(store, f, t, "cafe24_analytics", ("product_no", "product")).items() if v.get("product_orders")],
+        "product_sales": sorted([{"product_no": k[0], "product": v["_dims"].get("product") or k[0], "orders": v.get("product_orders", 0),
+                                  "qty": v.get("product_qty", 0), "amount": v.get("product_amount", 0)}
+                                 for k, v in _group(store, f, t, "cafe24_analytics", ("product_no",)).items() if v.get("product_orders")],
                                 key=lambda r: -r["orders"])[:10],
     }
 
@@ -275,14 +276,21 @@ def _ad_derive(m: dict[str, Any]) -> dict[str, Any]:
     return {x: k.get(x) for x in ("ad_cost", "ad_revenue", "ad_clicks", "ad_impressions", "ad_conversions", "roas", "ctr", "cpc", "cpa", "cvr")}
 
 
-def creatives_overview(store, f: str, t: str) -> list[dict[str, Any]]:
-    """Meta 소재별 성과 + 피로도(최근 7일 CTR vs 기간 초반 7일 CTR, 평균 빈도)."""
-    g = _group(store, f, t, "creative", ("ad_id",))
+CREATIVE_SOURCES = {"meta": "creative", "google": "google_creative"}
+
+
+def creatives_overview(store, f: str, t: str, channel: str = "meta") -> list[dict[str, Any]]:
+    """소재별 성과 + 피로도(최근 7일 CTR vs 기간 초반 7일 CTR, 평균 빈도). channel: meta | google"""
+    src = CREATIVE_SOURCES.get(channel, "creative")
+    g = _group(store, f, t, src, ("ad_id",))
     tf = _date.fromisoformat(t)
     recent_from = (tf - timedelta(days=6)).isoformat()
     early_to = (_date.fromisoformat(f) + timedelta(days=6)).isoformat()
-    recent = _group(store, recent_from, t, "creative", ("ad_id",))
-    early = _group(store, f, early_to, "creative", ("ad_id",))
+    recent = _group(store, recent_from, t, src, ("ad_id",))
+    early = _group(store, f, early_to, src, ("ad_id",))
+    freq_days: dict[str, set] = defaultdict(set)
+    for x in store.facts(f, t, source=src, metric="frequency"):
+        freq_days[x["dims"].get("ad_id")].add(x["date"])
 
     def ctr(x: dict[str, Any] | None) -> float | None:
         if not x or not x.get("impressions"):
@@ -294,23 +302,26 @@ def creatives_overview(store, f: str, t: str) -> list[dict[str, Any]]:
         d = m["_dims"]
         imp = m.get("impressions", 0)
         freq = (m.get("frequency", 0) * 1.0)  # 일자별 frequency 합 → 일수로 평균
-        n_days = len({x["date"] for x in store.facts(f, t, source="creative", metric="frequency") if x["dims"].get("ad_id") == ad_id}) or 1
+        n_days = len(freq_days.get(ad_id, ())) or 1
         avg_freq = freq / n_days
         c_r, c_e = ctr(recent.get((ad_id,))), ctr(early.get((ad_id,)))
         drop = ((c_e - c_r) / c_e * 100) if (c_r is not None and c_e) else None
-        level = "높음" if (drop is not None and drop >= 25) or avg_freq >= 3.5 else ("주의" if (drop is not None and drop >= 10) or avg_freq >= 2.5 else "정상")
+        if not freq_days:  # 빈도 지표가 없는 채널(구글)은 CTR 하락만으로 판정
+            avg_freq = None
+        level = "높음" if (drop is not None and drop >= 25) or (avg_freq or 0) >= 3.5 else ("주의" if (drop is not None and drop >= 10) or (avg_freq or 0) >= 2.5 else "정상")
         rows.append({"ad_id": ad_id, "ad_name": d.get("ad_name", ""), "campaign": d.get("campaign", ""), "adset": d.get("adset", ""),
-                     "thumbnail_url": d.get("thumbnail_url", ""), "reach": m.get("reach", 0), "frequency": avg_freq,
+                     "thumbnail_url": d.get("thumbnail_url", ""), "ad_type": d.get("ad_type", ""), "reach": m.get("reach", 0), "frequency": avg_freq,
                      "ctr_recent": c_r, "ctr_early": c_e, "ctr_drop_pct": drop, "fatigue": level, **_ad_derive(m)})
     rows.sort(key=lambda r: -(r["ad_cost"] or 0))
     return rows
 
 
-def creative_trend(store, f: str, t: str, top: int = 5) -> dict[str, Any]:
-    ids = [r["ad_id"] for r in creatives_overview(store, f, t)[:top]]
+def creative_trend(store, f: str, t: str, top: int = 5, channel: str = "meta") -> dict[str, Any]:
+    src = CREATIVE_SOURCES.get(channel, "creative")
+    ids = [r["ad_id"] for r in creatives_overview(store, f, t, channel)[:top]]
     by: dict[str, dict[str, dict[str, float]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     names: dict[str, str] = {}
-    for x in store.facts(f, t, source="creative"):
+    for x in store.facts(f, t, source=src):
         aid = x["dims"].get("ad_id")
         if aid in ids and x["metric"] in ("impressions", "clicks"):
             by[aid][x["date"]][x["metric"]] += float(x["value"] or 0)

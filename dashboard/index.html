@@ -80,7 +80,9 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
   .card { background: var(--card); border: 1px solid var(--border); border-top: 3px solid var(--s1); border-radius: 12px; padding: 12px 14px; min-width: 0; }
   .card .lbl { color: var(--text-2); font-size: 12px; }
-  .card .val { font-size: 22px; font-weight: 700; margin: 2px 0; letter-spacing: -0.01em; }
+  .card .val { font-size: 22px; font-weight: 700; margin: 2px 0; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
+  /* 숫자가 칸보다 길면 JS(fitText)가 글자 크기를 줄인다 */
+  .card .val, .tile .v, .mini .v, .kv b { white-space: nowrap; overflow: hidden; }
   .card .dlt { font-size: 12px; color: var(--text-3); }
   .up { color: var(--good); } .down { color: var(--bad); }
   .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
@@ -119,6 +121,7 @@
   .creatives { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
   .cr { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 0; }
   .cr img, .cr .ph { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; background: var(--surface-2); }
+  .cr.g img, .cr.g .ph { aspect-ratio: 1 / 1; object-fit: contain; background: #111; }
   .cr .b { padding: 10px 12px; }
   .cr .t { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cr .c { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
@@ -221,9 +224,9 @@
       <div class="panel c4"><h3>일별 광고비 vs 비광고 매출</h3><div class="sub">광고 전환매출 · 비광고(자연) 매출</div><div class="legend" id="lgAdOrg"></div><div class="chart"><canvas id="chAdOrg"></canvas></div></div>
       <div class="panel c4"><h3>디바이스별 매출 비율</h3><div class="sub">모바일 / PC</div><div class="legend" id="lgDev"></div><div class="chart sm"><canvas id="chDev"></canvas></div></div>
       <div class="panel c4"><h3>디바이스별 매출·주문 상세</h3><div class="sub">객단가 포함</div><table id="tblDev"></table></div>
-      <div class="panel c6"><h3>방문자 상세</h3><div class="sub">GA4 사용자 · 카페24 '방문'은 정의가 달라 숫자가 다른 게 정상</div><div class="tiles" id="visTiles"></div></div>
-      <div class="panel c6"><h3>신규회원 · 가입율 추이</h3><div class="sub">카페24 Admin API 미제공</div><div class="empty note">신규가입수·회원가입율은 카페24 API 가 제공하지 않습니다 (<code>/customers/count</code> 404). GA4 <code>sign_up</code> 이벤트를 심으면 연동 가능. 화면의 <b>—</b> 는 정상.</div></div>
-      <div class="panel"><h3>방문자 추이</h3><div class="sub" id="visitorSub">전체 · 신규 · 재방문 (GA4)</div><div class="legend" id="lgVis"></div><div class="chart"><canvas id="chVis"></canvas></div></div>
+      <div class="panel c6"><h3>방문자 상세</h3><div class="sub" id="visSub">카페24 접속통계 기준 · 방문 = 카페24 '방문' 정의</div><div class="tiles" id="visTiles"></div></div>
+      <div class="panel c6"><h3>신규 방문 · 첫 구매 추이</h3><div class="sub">카페24 접속통계 신규 방문 · 첫 주문(신규 고객) 건수 · 첫 구매 전환율 = 첫 주문 ÷ 신규 방문</div><div class="legend" id="lgNew"></div><div class="chart sm"><canvas id="chNew"></canvas></div><div class="note" id="newNote"></div></div>
+      <div class="panel"><h3>방문자 추이</h3><div class="sub" id="visitorSub">전체 · 신규 · 재방문</div><div class="legend" id="lgVis"></div><div class="chart"><canvas id="chVis"></canvas></div></div>
       <div class="panel c6"><h3>카테고리 매출 TOP 10</h3><div class="sub">metrics.yaml 그룹 기준</div><div class="chart"><canvas id="chCat"></canvas></div></div>
       <div class="panel c6"><h3>베스트 상품 TOP 5</h3><div class="sub">매출 기준</div><table id="tblBest"></table></div>
     </div>
@@ -257,7 +260,7 @@
 
   <!-- ───────── 광고 히스토리 ───────── -->
   <section id="tab-history" class="hidden">
-    <div class="sub-nav"><span class="lab note">채널</span><button class="pill on" data-h="meta">Meta 소재</button><button class="pill" data-h="naver_powerlink">네이버 검색(키워드)</button><button class="pill" data-h="naver_place">네이버 플레이스</button></div>
+    <div class="sub-nav"><span class="lab note">채널</span><button class="pill on" data-h="meta">Meta 소재</button><button class="pill" data-h="google">구글 소재</button><button class="pill" data-h="naver_powerlink">네이버 검색(키워드)</button><button class="pill" data-h="naver_place">네이버 플레이스</button></div>
     <div id="hist-meta">
       <div class="cards" id="crCards"></div>
       <div class="grid" style="margin-bottom:12px"><div class="panel"><h3>소재별 CTR 추이 <span class="note">광고비 상위 5 · CTR 하락 + 빈도 상승 = 피로도</span></h3><div class="legend" id="lgCr"></div><div class="chart sm"><canvas id="chCr"></canvas></div></div></div>
@@ -309,6 +312,19 @@
 
 <script>
 window.onerror = (m, s, l) => showErr(`화면 오류: ${m} (${l})`);
+// 숫자 칸 넘침 방지 — 내용이 칸보다 넓으면 최소 11px 까지 글자 크기를 줄인다 (렌더·리사이즈마다)
+function fitText() {
+  document.querySelectorAll('.card .val, .tile .v, .mini .v, .kv b').forEach(el => {
+    if (!el.offsetParent) return;  // 숨겨진 탭은 보일 때 다시 계산
+    el.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 1 && size > 11) { size -= 1; el.style.fontSize = size + 'px'; }
+  });
+}
+let fitQueued = false;
+const queueFit = () => { if (fitQueued) return; fitQueued = true; requestAnimationFrame(() => { fitQueued = false; fitText(); }); };
+new MutationObserver(queueFit).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+window.addEventListener('resize', queueFit);
 const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const SERIES = () => ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'].map(css);
@@ -353,6 +369,8 @@ function snapGet(path) {
   if (fixed[p]) return SNAP[fixed[p]];
   const R = SNAP.ranges[`${PRESET === 'custom' ? '7' : PRESET}|${CMP}`] || SNAP.ranges['7|prev'];
   if (p === '/api/ads/keywords') return u.searchParams.get('channel') === 'naver_place' ? R.place : R.keywords;
+  if (u.searchParams.get('channel') === 'google' && p === '/api/creatives/overview') return R.g_creatives || { rows: [], kpi: {} };
+  if (u.searchParams.get('channel') === 'google' && p === '/api/creatives/trend') return R.g_creative_trend || { dates: [], series: [] };
   const key = { '/api/summary': 'summary', '/api/daily': 'daily', '/api/breakdown': 'breakdown', '/api/shop/analytics': 'shop', '/api/ads/channels': 'ads',
                 '/api/competitors/trend': 'competitors', '/api/creatives/overview': 'creatives', '/api/creatives/trend': 'creative_trend', '/api/ga4/site': 'ga4' }[p];
   if (!key) throw new Error('snapshot 에 없는 경로: ' + p);
@@ -484,12 +502,32 @@ async function loadOps() {
   tbl('tblDev', ['구분', '매출', '주문', '객단가', '비중'], [
     `<tr><td>모바일</td><td>${fmt.krw(ms)}</td><td>${fmt.count(sum.cur.mobile_orders)}</td><td>${fmt.krw(sum.cur.mobile_orders ? ms / sum.cur.mobile_orders : null)}</td><td>${(ms / tot * 100).toFixed(1)}%</td></tr>`,
     `<tr><td>PC</td><td>${fmt.krw(ps)}</td><td>${fmt.count(sum.cur.pc_orders)}</td><td>${fmt.krw(sum.cur.pc_orders ? ps / sum.cur.pc_orders : null)}</td><td>${(ps / tot * 100).toFixed(1)}%</td></tr>`]);
-  const vt = (l, k) => `<div class="tile"><div class="l">${l}</div><div class="v">${F(k, sum.cur[k])}</div><div class="dlt">${dspan(k, (sum.compare[k] || {}).pct)}</div></div>`;
-  $('#visTiles').innerHTML = sum.cur.visitors != null ? vt('방문자', 'visitors') + vt('신규', 'new_visitors') + vt('재방문', 'returning_visitors') + vt('재방문율', 'revisit_rate') + `<div class="tile"><div class="l">카페24 방문</div><div class="v">${fmt.count(sa.visitors.visit_count)}</div><div class="dlt">${dspan('visitors', sa.visitors.prev_visit_count ? (sa.visitors.visit_count - sa.visitors.prev_visit_count) / sa.visitors.prev_visit_count * 100 : null)}</div></div>` : '<div class="empty">GA4 미연결 — docs/GA4-SETUP.md</div>';
   const hasGa4 = daily.some(d => d.visitors_source === 1);
-  legend('lgVis', hasGa4 ? [['전체', S[0]], ['신규', S[2]], ['재방문', S[3]]] : daily.some(d => d.visitors != null) ? [['카페24 방문', S[0]]] : []);
-  if (daily.some(d => d.visitors != null)) mk('chVis', { type: 'line', data: { labels, datasets: hasGa4 ? [areaDs('전체', daily.map(d => d.visitors), S[0]), lineDs('신규', daily.map(d => d.new_visitors), S[2], { pointRadius: 0 }), lineDs('재방문', daily.map(d => d.returning_visitors), S[3], { pointRadius: 0 })] : [areaDs('카페24 방문', daily.map(d => d.visitors), S[0])] }, options: baseOpts() });
-  else { if (charts.chVis) { charts.chVis.destroy(); delete charts.chVis; } $('#visitorSub').textContent = 'GA4 미연결 — docs/GA4-SETUP.md'; }
+  const vt = (l, k) => `<div class="tile"><div class="l">${l}</div><div class="v">${F(k, sum.cur[k])}</div><div class="dlt">${dspan(k, (sum.compare[k] || {}).pct)}</div></div>`;
+  const pvTot = (sa.pages || []).reduce((a, r) => a + (r.views || 0), 0);
+  const newShare = sum.cur.visitors ? (sum.cur.new_visitors || 0) / sum.cur.visitors * 100 : null;
+  $('#visSub').textContent = hasGa4 ? "GA4 사용자 기준 · 카페24 '방문'은 정의가 달라 숫자가 다른 게 정상" : "카페24 접속통계 기준 (방문 · 신규 방문 · 재방문) · 비교기간 대비";
+  $('#visTiles').innerHTML = sum.cur.visitors != null
+    ? vt(hasGa4 ? '방문자' : '방문', 'visitors') + vt('신규 방문', 'new_visitors') + vt('재방문', 'returning_visitors') + vt('재방문율', 'revisit_rate')
+      + (hasGa4 ? `<div class="tile"><div class="l">카페24 방문</div><div class="v">${fmt.count(sa.visitors.visit_count)}</div><div class="dlt">${dspan('visitors', sa.visitors.prev_visit_count ? (sa.visitors.visit_count - sa.visitors.prev_visit_count) / sa.visitors.prev_visit_count * 100 : null)}</div></div>`
+               : `<div class="tile"><div class="l">신규 방문 비중</div><div class="v">${fmt.pct1(newShare)}</div><div class="dlt note">방문 중 첫 방문</div></div>`)
+      + `<div class="tile"><div class="l">페이지뷰 (상위 페이지)</div><div class="v">${pvTot ? fmt.count(pvTot) : '—'}</div><div class="dlt note">카페24 페이지별 조회 합계</div></div>`
+    : '<div class="empty">카페24 접속통계 수집 전 — 다음 수집 후 표시</div>';
+  const hasVis = daily.some(d => d.visitors != null);
+  legend('lgVis', hasVis ? [[hasGa4 ? '전체' : '방문', S[0]], ['신규 방문', S[2]], ['재방문', S[3]]] : []);
+  if (hasVis) { $('#visitorSub').textContent = hasGa4 ? '전체 · 신규 · 재방문 (GA4)' : '방문 · 신규 방문 · 재방문 (카페24 접속통계)';
+    mk('chVis', { type: 'line', data: { labels, datasets: [areaDs(hasGa4 ? '전체' : '방문', daily.map(d => d.visitors), S[0]), lineDs('신규 방문', daily.map(d => d.new_visitors), S[2], { pointRadius: 0 }), lineDs('재방문', daily.map(d => d.returning_visitors), S[3], { pointRadius: 0 })] }, options: baseOpts() }); }
+  else { if (charts.chVis) { charts.chVis.destroy(); delete charts.chVis; } $('#visitorSub').textContent = '카페24 접속통계 수집 전'; }
+  // 신규 방문 · 첫 구매 (가입 수는 카페24 개인정보 권한 mall.read_privacy 가 있어야 조회 가능)
+  const firstRate = daily.map(d => d.new_visitors ? (d.new_orders || 0) / d.new_visitors * 100 : null);
+  legend('lgNew', [['신규 방문', S[2]], ['첫 주문', S[1]], ['첫 구매 전환율', S[6]]]);
+  if (daily.some(d => d.new_visitors != null)) {
+    const o = baseOpts(); o.scales.y2 = { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 4, callback: (v) => v.toFixed(1) + '%' } };
+    o.plugins.tooltip.callbacks = { label: (c) => ` ${c.dataset.label} ${c.dataset.yAxisID === 'y2' ? fmt.pct(c.raw) : fmt.count(c.raw)}` };
+    mk('chNew', { type: 'bar', data: { labels, datasets: [barDs('신규 방문', daily.map(d => d.new_visitors), S[2]), barDs('첫 주문', daily.map(d => d.new_orders), S[1]), lineDs('첫 구매 전환율', firstRate, S[6], { type: 'line', yAxisID: 'y2' })] }, options: o });
+    const nv = sum.cur.new_visitors, no = sum.cur.new_orders;
+    $('#newNote').textContent = `기간 합계: 신규 방문 ${fmt.count(nv)} · 첫 주문 ${fmt.count(no)} · 첫 구매 전환율 ${nv ? fmt.pct(no / nv * 100) : '—'} · 회원가입 수는 카페24 '개인정보 조회' 권한을 추가 승인하면 연동할 수 있습니다.`;
+  } else { if (charts.chNew) { charts.chNew.destroy(); delete charts.chNew; } $('#newNote').textContent = '카페24 접속통계 수집 전'; }
   mk('chCat', { type: 'bar', data: { labels: bd.categories.map(c => c.category), datasets: [{ label: '매출', data: bd.categories.map(c => c.sales), backgroundColor: S[0], borderRadius: { topRight: 4, bottomRight: 4 }, borderSkipped: 'left', maxBarThickness: 22 }] },
     options: baseOpts({ indexAxis: 'y', scales: { x: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5, callback: (v) => fmt.compact(v) } }, y: { grid: { display: false }, ticks: { color: css('--text-2') } } },
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${fmt.krw(c.raw)} (${bd.categories[c.dataIndex].share.toFixed(1)}%)` } } } }) });
@@ -539,29 +577,46 @@ async function loadAds() {
 }
 
 // ---------- 광고 히스토리 ----------
-$$('#histNav, .sub-nav [data-h]').forEach(() => {}); $$('[data-h]').forEach(b => b.onclick = () => { HIST = b.dataset.h; $$('[data-h]').forEach(x => x.classList.toggle('on', x === b)); ['meta', 'naver_powerlink', 'naver_place'].forEach(h => $('#hist-' + h).classList.toggle('hidden', h !== HIST)); });
+function setHist(h) {
+  HIST = h; $$('[data-h]').forEach(x => x.classList.toggle('on', x.dataset.h === h));
+  const crTab = h === 'meta' || h === 'google';
+  $('#hist-meta').classList.toggle('hidden', !crTab);
+  ['naver_powerlink', 'naver_place'].forEach(x => $('#hist-' + x).classList.toggle('hidden', x !== h));
+}
+let HIST_AUTO = true;  // 첫 로드에 Meta 소재가 없고 구글 소재가 있으면 구글 소재를 먼저 보여준다
+$$('[data-h]').forEach(b => b.onclick = () => { HIST_AUTO = false; setHist(b.dataset.h); if (HIST === 'meta' || HIST === 'google') loadCreatives().catch(e => showErr(e.message)); });
 $$('[data-cs]').forEach(b => b.onclick = () => { CRSORT = b.dataset.cs; $$('[data-cs]').forEach(x => x.classList.toggle('on', x === b)); renderCreatives(); });
 $$('[data-ks]').forEach(b => b.onclick = () => { KWSORT = b.dataset.ks; $$('[data-ks]').forEach(x => x.classList.toggle('on', x === b)); loadKeywords().catch(e => showErr(e.message)); });
 let CR = { rows: [] };
 async function loadHistory() {
-  const [cr, tr] = await Promise.all([api(`/api/creatives/overview?${q()}`), api(`/api/creatives/trend?${q()}`)]);
-  CR = cr; const S = SERIES(), k = cr.kpi || {};
+  if (HIST_AUTO) {
+    const [m, g] = await Promise.all([api(`/api/creatives/overview?${q()}&channel=meta`), api(`/api/creatives/overview?${q()}&channel=google`)]);
+    if (!(m.rows || []).length && (g.rows || []).length) setHist('google');
+  }
+  await loadCreatives(); await loadKeywords();
+}
+async function loadCreatives() {
+  const ch = HIST === 'google' ? 'google' : 'meta';
+  const [cr, tr] = await Promise.all([api(`/api/creatives/overview?${q()}&channel=${ch}`), api(`/api/creatives/trend?${q()}&channel=${ch}`)]);
+  CR = cr; CR.channel = ch; const S = SERIES(), k = cr.kpi || {};
   $('#crCards').innerHTML = [['live', '라이브 소재', fmt.count(k.live) + '개'], ['ad_cost', '광고비', fmt.krw(k.ad_cost)], ['ad_conversions', '총 전환(결과)', fmt.num(k.ad_conversions)], ['cpa', '전환당 비용', fmt.krw(k.cpa)], ['ctr', '평균 CTR', fmt.pct(k.ctr)], ['cvr', '전환율', fmt.pct(k.cvr)]]
     .map(([kk, l, v]) => `<div class="card"><div class="lbl">${l}</div><div class="val">${v}</div><div class="dlt">${kk === 'live' && k.best ? `최고 성과: ${esc(k.best.ad_name)}` : ''}</div></div>`).join('');
   legend('lgCr', tr.series.map((s, i) => [s.ad_name, S[i % S.length]]));
   if (tr.series.length) mk('chCr', { type: 'line', data: { labels: tr.dates, datasets: tr.series.map((s, i) => lineDs(s.ad_name, s.ctr, S[i % S.length], { pointRadius: 0 })) },
     options: baseOpts({ scales: { x: { grid: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 8, callback(v) { return String(this.getLabelForValue(v)).slice(5); } } }, y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 4, callback: (v) => v + '%' } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} CTR ${c.raw == null ? '—' : c.raw.toFixed(2) + '%'}` } } } }) });
   else if (charts.chCr) { charts.chCr.destroy(); delete charts.chCr; }
-  renderCreatives(); await loadKeywords();
+  renderCreatives();
 }
 function renderCreatives() {
   const rows = [...CR.rows].sort((a, b) => (b[CRSORT] || 0) - (a[CRSORT] || 0));
   $('#crCount').textContent = `소재별 성과 (${rows.length})`;
   const fat = (l) => l === '높음' ? 'bad' : l === '주의' ? 'warn' : 'good';
-  $('#creatives').innerHTML = rows.length ? rows.map(r => `<div class="cr">${r.thumbnail_url ? `<img src="${esc(r.thumbnail_url)}" alt="" loading="lazy">` : '<div class="ph"></div>'}<div class="b">
-      <div class="t" title="${esc(r.ad_name)}">${esc(r.ad_name)}</div><div class="c">Meta · ${esc(r.campaign)} <span class="tag ${fat(r.fatigue)}">피로도 ${r.fatigue}</span></div>
-      <div class="kv"><span>전환(결과)</span><b>${fmt.num(r.ad_conversions)}</b><span>전환율</span><b>${fmt.pct(r.cvr)}</b><span>전환당 비용</span><b>${fmt.krw(r.cpa)}</b><span>CTR</span><b>${fmt.pct(r.ctr)}</b><span>CPC</span><b>${fmt.krw(r.cpc)}</b><span>비용</span><b>${fmt.krw(r.ad_cost)}</b><span>ROAS</span><b>${fmt.x(r.roas)}</b><span>빈도</span><b>${r.frequency ? r.frequency.toFixed(2) : '—'}</b><span>CTR 초반→최근</span><b>${fmt.pct(r.ctr_early)} → ${fmt.pct(r.ctr_recent)}</b></div></div></div>`).join('')
-    : '<div class="panel"><div class="empty">Meta 미연결 — 채널 연결 탭 STEP 3 (소재 이미지는 활성/최근 활성 광고만 수집)</div></div>';
+  const G = CR.channel === 'google';
+  const TYPE = { DEMAND_GEN_MULTI_ASSET_AD: '디맨드젠 이미지', DEMAND_GEN_VIDEO_RESPONSIVE_AD: '디맨드젠 동영상', DEMAND_GEN_CAROUSEL_AD: '디맨드젠 캐러셀', RESPONSIVE_SEARCH_AD: '검색 광고', RESPONSIVE_DISPLAY_AD: '반응형 디스플레이', PERFORMANCE_MAX: '실적 최대화', VIDEO_RESPONSIVE_AD: '동영상' };
+  $('#creatives').innerHTML = rows.length ? rows.map(r => `<div class="cr${G ? ' g' : ''}">${r.thumbnail_url ? `<img src="${esc(r.thumbnail_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="ph" style="display:grid;place-items:center;color:#aab;font-size:12px">${G ? esc(TYPE[r.ad_type] || '이미지 없음') : ''}</div>`}<div class="b">
+      <div class="t" title="${esc(r.ad_name)}">${esc(r.ad_name)}</div><div class="c">${G ? 'Google' : 'Meta'} · ${esc(r.campaign)}${G && r.ad_type ? ` · ${esc(TYPE[r.ad_type] || r.ad_type)}` : ''} <span class="tag ${fat(r.fatigue)}">피로도 ${r.fatigue}</span></div>
+      <div class="kv"><span>전환(결과)</span><b>${fmt.num(r.ad_conversions)}</b><span>전환율</span><b>${fmt.pct(r.cvr)}</b><span>전환당 비용</span><b>${fmt.krw(r.cpa)}</b><span>CTR</span><b>${fmt.pct(r.ctr)}</b><span>CPC</span><b>${fmt.krw(r.cpc)}</b><span>비용</span><b>${fmt.krw(r.ad_cost)}</b><span>ROAS</span><b>${fmt.x(r.roas)}</b>${G ? '' : `<span>빈도</span><b>${r.frequency ? r.frequency.toFixed(2) : '—'}</b>`}<span>CTR 초반→최근</span><b>${fmt.pct(r.ctr_early)} → ${fmt.pct(r.ctr_recent)}</b></div></div></div>`).join('')
+    : `<div class="panel"><div class="empty">${G ? '구글 소재 수집 전 — 다음 수집 후 표시 (디맨드젠·실적 최대화·검색 광고)' : 'Meta 미연결 — 채널 연결 탭 STEP 3 (소재 이미지는 활성/최근 활성 광고만 수집)'}</div></div>`;
 }
 async function loadKeywords() {
   const [kw, pl] = await Promise.all([api(`/api/ads/keywords?${q()}&channel=naver_powerlink&sort=${KWSORT}`), api(`/api/ads/keywords?${q()}&channel=naver_place`)]);

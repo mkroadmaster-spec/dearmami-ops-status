@@ -217,6 +217,27 @@ def creative(d: str) -> list[Fact]:
     return out
 
 
+_G_CREATIVES = [("g1", "gg_신상 코트 USP 소구_이미지", "디맨드젠 신규"), ("g2", "gg_베스트 니트 후기_이미지", "디맨드젠 신규"),
+                ("g3", "gg_브랜드 영상 15초", "디맨드젠 동영상"), ("ag1", "PMax 전체상품", "실적 최대화")]
+
+
+def google_creative(d: str) -> list[Fact]:
+    r = _rng(d, "gcreative")
+    f = _day_factor(d)
+    out: list[Fact] = []
+    for i, (cid, name, camp) in enumerate(_G_CREATIVES):
+        cost = r.gauss(90000, 15000) * f * (1.6 if i == 0 else 0.7)
+        clicks = cost / r.uniform(150, 260)
+        impr = clicks / r.uniform(0.008, 0.03)
+        dims = {"ad_id": cid, "ad_name": name, "campaign": camp, "adset": f"{camp} 그룹", "ad_type": "DEMAND_GEN_MULTI_ASSET_AD",
+                "thumbnail_url": _thumb(cid + "g")}
+        out += [fact(d, "google_creative", "ad_cost", cost, **dims), fact(d, "google_creative", "impressions", impr, **dims),
+                fact(d, "google_creative", "clicks", clicks, **dims),
+                fact(d, "google_creative", "conversions", clicks * r.uniform(0.004, 0.02), **dims),
+                fact(d, "google_creative", "ad_revenue", cost * r.uniform(3, 9), **dims)]
+    return out
+
+
 def naver_keyword(d: str) -> list[Fact]:
     r = _rng(d, "nkw")
     f = _day_factor(d)

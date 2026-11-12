@@ -68,6 +68,8 @@ def kpis_from_facts(facts: list[dict[str, Any]]) -> dict[str, float | None]:
     # 방문자: GA4 우선, 없으면 카페24 통계 '방문' (정의가 달라 UI 에 출처 표기)
     if not have_ga4 and k.get("cafe24_visits") is not None:
         k["visitors"] = k["cafe24_visits"]
+        k["new_visitors"] = k.get("cafe24_first_visits")
+        k["returning_visitors"] = k.get("cafe24_revisits")
         k["visitors_source"] = 0  # 0 = cafe24_analytics, 1 = ga4
     elif have_ga4:
         k["visitors_source"] = 1

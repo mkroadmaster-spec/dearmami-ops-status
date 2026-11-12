@@ -16,6 +16,18 @@
 없는 경로(확인됨): /carts/view, /sales/*, /orders/*, /members/view, /adeffect/*,
   /visitors/hours|devices|newandreturn, /pages/exit|entrance, /products/buy|carts|best
 숫자가 문자열로 오는 필드가 섞여 있다 ("order_amount": "1908000").
+
+실측 응답 구조 (2026-11 확인):
+  /visitors/view      {"view": [{date, visit_count, first_visit_count, re_visit_count}]}
+  /carts/action       {"action": [{product_no, product_name, count(조회), add_cart_count, add_cart_rate}]}
+                       ※ 같은 상품이 이름(페이지 제목) 별로 여러 행 — 조회는 합산, 담기는 상품 단위 값이 반복(최대값 사용)
+  /products/sales     {"sales": [{product_no, product_name, order_count, order_product_count(수량), order_amount}]}
+  /products/view      {"view": [{product_no, product_name, count}]}
+  /visitpaths/keywords {"keywords": [{keyword, visit_count}]}   /visitpaths/domains {"domains": [{domain, visit_count}]}
+  /visitpaths/ads     {"ads": [{ad, visit_count}]}
+  /pages/view         {"view": [{url, count, visit_count, first_visit_count}]}
+  /members/sales      {"sales": [{member_order_count, member_order_amount, nonmember_order_count, nonmember_order_amount}]}
+  목록은 기본 100행 → limit=1000 지원 (offset 도 지원).
 """
 from __future__ import annotations
 
@@ -23,6 +35,7 @@ import time
 from typing import Any
 
 HOST = "https://ca-api.cafe24data.com"
+LIMIT = 1000
 
 
 def _num(v: Any) -> float:
@@ -33,10 +46,11 @@ def _num(v: Any) -> float:
 
 
 def _rows(data: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    """응답의 목록 키가 경로마다 다르다(view/action/sales/…) → 지정 키 우선, 없으면 첫 목록 값."""
     for k in keys:
         if isinstance(data.get(k), list):
             return data[k]
-    return data.get("data") or []
+    return next((v for v in data.values() if isinstance(v, list)), [])
 
 
 class Cafe24Analytics:
@@ -59,28 +73,31 @@ class Cafe24Analytics:
 
     def visitors_view(self, d: str) -> dict[str, float]:
         tot = {"visit_count": 0.0, "first_visit_count": 0.0, "re_visit_count": 0.0}
-        for r in _rows(self.get("/visitors/view", d, d), "visitors"):
+        for r in _rows(self.get("/visitors/view", d, d), "view"):
             for k in tot:
                 tot[k] += _num(r.get(k))
         return tot
 
     def carts_action(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/carts/action", s, e), "carts")
+        return _rows(self.get("/carts/action", s, e, limit=LIMIT), "action")
 
     def products_sales(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/products/sales", s, e), "products")
+        return _rows(self.get("/products/sales", s, e, limit=LIMIT), "sales")
+
+    def products_view(self, s: str, e: str) -> list[dict[str, Any]]:
+        return _rows(self.get("/products/view", s, e, limit=LIMIT), "view")
 
     def keywords(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/visitpaths/keywords", s, e), "keywords")
+        return _rows(self.get("/visitpaths/keywords", s, e, limit=LIMIT), "keywords")
 
     def domains(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/visitpaths/domains", s, e), "domains")
+        return _rows(self.get("/visitpaths/domains", s, e, limit=LIMIT), "domains")
 
     def ad_paths(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/visitpaths/ads", s, e), "ads")
+        return _rows(self.get("/visitpaths/ads", s, e, limit=LIMIT), "ads")
 
     def pages_view(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/pages/view", s, e), "pages")
+        return _rows(self.get("/pages/view", s, e, limit=LIMIT), "view")
 
     def members_sales(self, s: str, e: str) -> list[dict[str, Any]]:
-        return _rows(self.get("/members/sales", s, e), "members")
+        return _rows(self.get("/members/sales", s, e), "sales")
