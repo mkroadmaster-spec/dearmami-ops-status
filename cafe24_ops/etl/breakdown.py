@@ -276,7 +276,7 @@ def _ad_derive(m: dict[str, Any]) -> dict[str, Any]:
     return {x: k.get(x) for x in ("ad_cost", "ad_revenue", "ad_clicks", "ad_impressions", "ad_conversions", "roas", "ctr", "cpc", "cpa", "cvr")}
 
 
-CREATIVE_SOURCES = {"meta": "creative", "google": "google_creative"}
+CREATIVE_SOURCES = {"meta": "creative", "google": "google_creative", "kakao": "kakao_creative"}
 
 
 def creatives_overview(store, f: str, t: str, channel: str = "meta") -> list[dict[str, Any]]:

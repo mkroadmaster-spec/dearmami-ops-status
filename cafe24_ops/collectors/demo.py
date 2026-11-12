@@ -238,6 +238,22 @@ def google_creative(d: str) -> list[Fact]:
     return out
 
 
+def kakao_creative(d: str) -> list[Fact]:
+    r = _rng(d, "kcreative")
+    f = _day_factor(d)
+    out: list[Fact] = []
+    for i, (cid, name) in enumerate([("k1", "11월_신상코트_1200x1200"), ("k2", "베스트니트_네이티브"), ("k3", "쇼핑박스_특가")]):
+        cost = r.gauss(70000, 12000) * f * (1.4 if i == 0 else 0.8)
+        clicks = cost / r.uniform(220, 320)
+        impr = clicks / r.uniform(0.02, 0.04)
+        dims = {"ad_id": cid, "ad_name": name, "campaign": "카카오 비즈보드", "adset": "구매 최적화", "ad_type": "IMAGE_NATIVE",
+                "thumbnail_url": _thumb(cid + "k")}
+        out += [fact(d, "kakao_creative", "ad_cost", cost, **dims), fact(d, "kakao_creative", "impressions", impr, **dims),
+                fact(d, "kakao_creative", "clicks", clicks, **dims), fact(d, "kakao_creative", "conversions", clicks * r.uniform(0.01, 0.04), **dims),
+                fact(d, "kakao_creative", "ad_revenue", cost * r.uniform(3, 8), **dims)]
+    return out
+
+
 def naver_keyword(d: str) -> list[Fact]:
     r = _rng(d, "nkw")
     f = _day_factor(d)

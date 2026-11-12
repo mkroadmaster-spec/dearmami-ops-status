@@ -82,6 +82,7 @@ def build_snapshot() -> dict:
             "keywords": get(f"/api/ads/keywords?{q}&channel=naver_powerlink"), "place": get(f"/api/ads/keywords?{q}&channel=naver_place"),
             "creatives": get(f"/api/creatives/overview?{q}"), "creative_trend": get(f"/api/creatives/trend?{q}"),
             "g_creatives": get(f"/api/creatives/overview?{q}&channel=google"), "g_creative_trend": get(f"/api/creatives/trend?{q}&channel=google"),
+            "k_creatives": get(f"/api/creatives/overview?{q}&channel=kakao"), "k_creative_trend": get(f"/api/creatives/trend?{q}&channel=kakao"),
             "ga4": get(f"/api/ga4/site?{q}"), "competitors": get(f"/api/competitors/trend?{q}"),
         }
     return snap

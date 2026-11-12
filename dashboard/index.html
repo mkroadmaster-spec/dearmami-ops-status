@@ -260,7 +260,7 @@
 
   <!-- ───────── 광고 히스토리 ───────── -->
   <section id="tab-history" class="hidden">
-    <div class="sub-nav"><span class="lab note">채널</span><button class="pill on" data-h="meta">Meta 소재</button><button class="pill" data-h="google">구글 소재</button><button class="pill" data-h="naver_powerlink">네이버 검색(키워드)</button><button class="pill" data-h="naver_place">네이버 플레이스</button></div>
+    <div class="sub-nav"><span class="lab note">채널</span><button class="pill on" data-h="meta">Meta 소재</button><button class="pill" data-h="google">구글 소재</button><button class="pill" data-h="kakao">카카오 소재</button><button class="pill" data-h="naver_powerlink">네이버 검색(키워드)</button><button class="pill" data-h="naver_place">네이버 플레이스</button></div>
     <div id="hist-meta">
       <div class="cards" id="crCards"></div>
       <div class="grid" style="margin-bottom:12px"><div class="panel"><h3>소재별 CTR 추이 <span class="note">광고비 상위 5 · CTR 하락 + 빈도 상승 = 피로도</span></h3><div class="legend" id="lgCr"></div><div class="chart sm"><canvas id="chCr"></canvas></div></div></div>
@@ -369,8 +369,9 @@ function snapGet(path) {
   if (fixed[p]) return SNAP[fixed[p]];
   const R = SNAP.ranges[`${PRESET === 'custom' ? '7' : PRESET}|${CMP}`] || SNAP.ranges['7|prev'];
   if (p === '/api/ads/keywords') return u.searchParams.get('channel') === 'naver_place' ? R.place : R.keywords;
-  if (u.searchParams.get('channel') === 'google' && p === '/api/creatives/overview') return R.g_creatives || { rows: [], kpi: {} };
-  if (u.searchParams.get('channel') === 'google' && p === '/api/creatives/trend') return R.g_creative_trend || { dates: [], series: [] };
+  const crPre = { google: 'g_', kakao: 'k_' }[u.searchParams.get('channel')];
+  if (crPre && p === '/api/creatives/overview') return R[crPre + 'creatives'] || { rows: [], kpi: {} };
+  if (crPre && p === '/api/creatives/trend') return R[crPre + 'creative_trend'] || { dates: [], series: [] };
   const key = { '/api/summary': 'summary', '/api/daily': 'daily', '/api/breakdown': 'breakdown', '/api/shop/analytics': 'shop', '/api/ads/channels': 'ads',
                 '/api/competitors/trend': 'competitors', '/api/creatives/overview': 'creatives', '/api/creatives/trend': 'creative_trend', '/api/ga4/site': 'ga4' }[p];
   if (!key) throw new Error('snapshot 에 없는 경로: ' + p);
@@ -577,26 +578,28 @@ async function loadAds() {
 }
 
 // ---------- 광고 히스토리 ----------
+const CR_CHANNELS = ['meta', 'google', 'kakao'];
 function setHist(h) {
   HIST = h; $$('[data-h]').forEach(x => x.classList.toggle('on', x.dataset.h === h));
-  const crTab = h === 'meta' || h === 'google';
+  const crTab = CR_CHANNELS.includes(h);
   $('#hist-meta').classList.toggle('hidden', !crTab);
   ['naver_powerlink', 'naver_place'].forEach(x => $('#hist-' + x).classList.toggle('hidden', x !== h));
 }
-let HIST_AUTO = true;  // 첫 로드에 Meta 소재가 없고 구글 소재가 있으면 구글 소재를 먼저 보여준다
-$$('[data-h]').forEach(b => b.onclick = () => { HIST_AUTO = false; setHist(b.dataset.h); if (HIST === 'meta' || HIST === 'google') loadCreatives().catch(e => showErr(e.message)); });
+let HIST_AUTO = true;  // 첫 로드에 Meta 소재가 없으면 소재가 있는 채널(구글 → 카카오)을 먼저 보여준다
+$$('[data-h]').forEach(b => b.onclick = () => { HIST_AUTO = false; setHist(b.dataset.h); if (CR_CHANNELS.includes(HIST)) loadCreatives().catch(e => showErr(e.message)); });
 $$('[data-cs]').forEach(b => b.onclick = () => { CRSORT = b.dataset.cs; $$('[data-cs]').forEach(x => x.classList.toggle('on', x === b)); renderCreatives(); });
 $$('[data-ks]').forEach(b => b.onclick = () => { KWSORT = b.dataset.ks; $$('[data-ks]').forEach(x => x.classList.toggle('on', x === b)); loadKeywords().catch(e => showErr(e.message)); });
 let CR = { rows: [] };
 async function loadHistory() {
   if (HIST_AUTO) {
-    const [m, g] = await Promise.all([api(`/api/creatives/overview?${q()}&channel=meta`), api(`/api/creatives/overview?${q()}&channel=google`)]);
-    if (!(m.rows || []).length && (g.rows || []).length) setHist('google');
+    const all = await Promise.all(CR_CHANNELS.map(c => api(`/api/creatives/overview?${q()}&channel=${c}`)));
+    const first = CR_CHANNELS.find((c, i) => (all[i].rows || []).length);
+    if (first && HIST === 'meta' && first !== 'meta') setHist(first);
   }
   await loadCreatives(); await loadKeywords();
 }
 async function loadCreatives() {
-  const ch = HIST === 'google' ? 'google' : 'meta';
+  const ch = CR_CHANNELS.includes(HIST) ? HIST : 'meta';
   const [cr, tr] = await Promise.all([api(`/api/creatives/overview?${q()}&channel=${ch}`), api(`/api/creatives/trend?${q()}&channel=${ch}`)]);
   CR = cr; CR.channel = ch; const S = SERIES(), k = cr.kpi || {};
   $('#crCards').innerHTML = [['live', '라이브 소재', fmt.count(k.live) + '개'], ['ad_cost', '광고비', fmt.krw(k.ad_cost)], ['ad_conversions', '총 전환(결과)', fmt.num(k.ad_conversions)], ['cpa', '전환당 비용', fmt.krw(k.cpa)], ['ctr', '평균 CTR', fmt.pct(k.ctr)], ['cvr', '전환율', fmt.pct(k.cvr)]]
@@ -611,12 +614,13 @@ function renderCreatives() {
   const rows = [...CR.rows].sort((a, b) => (b[CRSORT] || 0) - (a[CRSORT] || 0));
   $('#crCount').textContent = `소재별 성과 (${rows.length})`;
   const fat = (l) => l === '높음' ? 'bad' : l === '주의' ? 'warn' : 'good';
-  const G = CR.channel === 'google';
-  const TYPE = { DEMAND_GEN_MULTI_ASSET_AD: '디맨드젠 이미지', DEMAND_GEN_VIDEO_RESPONSIVE_AD: '디맨드젠 동영상', DEMAND_GEN_CAROUSEL_AD: '디맨드젠 캐러셀', RESPONSIVE_SEARCH_AD: '검색 광고', RESPONSIVE_DISPLAY_AD: '반응형 디스플레이', PERFORMANCE_MAX: '실적 최대화', VIDEO_RESPONSIVE_AD: '동영상' };
+  const G = CR.channel !== 'meta', CHN = { meta: 'Meta', google: 'Google', kakao: '카카오' }[CR.channel];
+  const TYPE = { DEMAND_GEN_MULTI_ASSET_AD: '디맨드젠 이미지', DEMAND_GEN_VIDEO_RESPONSIVE_AD: '디맨드젠 동영상', DEMAND_GEN_CAROUSEL_AD: '디맨드젠 캐러셀', RESPONSIVE_SEARCH_AD: '검색 광고', RESPONSIVE_DISPLAY_AD: '반응형 디스플레이', PERFORMANCE_MAX: '실적 최대화', VIDEO_RESPONSIVE_AD: '동영상',
+                 IMAGE_NATIVE: '네이티브 이미지', IMAGE_BOX: '이미지 박스', VIDEO_NATIVE: '네이티브 동영상', CATALOG_MANUAL: '카탈로그', CATALOG_DYNAMIC: '다이내믹 카탈로그', CAROUSEL_COMMERCE: '캐러셀', MESSAGE: '메시지' };
   $('#creatives').innerHTML = rows.length ? rows.map(r => `<div class="cr${G ? ' g' : ''}">${r.thumbnail_url ? `<img src="${esc(r.thumbnail_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="ph" style="display:grid;place-items:center;color:#aab;font-size:12px">${G ? esc(TYPE[r.ad_type] || '이미지 없음') : ''}</div>`}<div class="b">
-      <div class="t" title="${esc(r.ad_name)}">${esc(r.ad_name)}</div><div class="c">${G ? 'Google' : 'Meta'} · ${esc(r.campaign)}${G && r.ad_type ? ` · ${esc(TYPE[r.ad_type] || r.ad_type)}` : ''} <span class="tag ${fat(r.fatigue)}">피로도 ${r.fatigue}</span></div>
+      <div class="t" title="${esc(r.ad_name)}">${esc(r.ad_name)}</div><div class="c">${CHN} · ${esc(r.campaign)}${G && r.ad_type ? ` · ${esc(TYPE[r.ad_type] || r.ad_type)}` : ''} <span class="tag ${fat(r.fatigue)}">피로도 ${r.fatigue}</span></div>
       <div class="kv"><span>전환(결과)</span><b>${fmt.num(r.ad_conversions)}</b><span>전환율</span><b>${fmt.pct(r.cvr)}</b><span>전환당 비용</span><b>${fmt.krw(r.cpa)}</b><span>CTR</span><b>${fmt.pct(r.ctr)}</b><span>CPC</span><b>${fmt.krw(r.cpc)}</b><span>비용</span><b>${fmt.krw(r.ad_cost)}</b><span>ROAS</span><b>${fmt.x(r.roas)}</b>${G ? '' : `<span>빈도</span><b>${r.frequency ? r.frequency.toFixed(2) : '—'}</b>`}<span>CTR 초반→최근</span><b>${fmt.pct(r.ctr_early)} → ${fmt.pct(r.ctr_recent)}</b></div></div></div>`).join('')
-    : `<div class="panel"><div class="empty">${G ? '구글 소재 수집 전 — 다음 수집 후 표시 (디맨드젠·실적 최대화·검색 광고)' : 'Meta 미연결 — 채널 연결 탭 STEP 3 (소재 이미지는 활성/최근 활성 광고만 수집)'}</div></div>`;
+    : `<div class="panel"><div class="empty">${G ? `${CHN} 소재 수집 전 — 다음 수집 후 표시` : 'Meta 미연결 — 채널 연결 탭 STEP 3 (소재 이미지는 활성/최근 활성 광고만 수집)'}</div></div>`;
 }
 async function loadKeywords() {
   const [kw, pl] = await Promise.all([api(`/api/ads/keywords?${q()}&channel=naver_powerlink&sort=${KWSORT}`), api(`/api/ads/keywords?${q()}&channel=naver_place`)]);

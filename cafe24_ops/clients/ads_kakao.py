@@ -126,3 +126,58 @@ class KakaoMomentClient:
             agg["conversions"] += float(m.get("conv_purchase_7d", 0) or m.get("conv_purchase_1d", 0) or 0)
             agg["ad_revenue"] += float(m.get("conv_purchase_p_7d", 0) or m.get("conv_purchase_p_1d", 0) or 0)
         return agg
+
+    # ---- 소재 단위 (광고 히스토리 '카카오 소재') ---------------------------------------
+    def _content(self, path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        r = self._get(path, params)
+        if r.status_code >= 400:
+            raise RuntimeError(f"Kakao GET {path} {r.status_code}: {r.text[:200]}")
+        j = r.json()
+        return j.get("content", []) if isinstance(j, dict) else j
+
+    def campaigns(self) -> list[dict[str, Any]]:
+        return self._content("/campaigns", {})
+
+    def ad_groups(self, campaign_id: int) -> list[dict[str, Any]]:
+        return self._content("/adGroups", {"campaignId": campaign_id})
+
+    def creatives(self, ad_group_id: int) -> list[dict[str, Any]]:
+        return self._content("/creatives", {"adGroupId": ad_group_id})
+
+    def creative_detail(self, creative_id: int | str) -> dict[str, Any]:
+        r = self._get(f"/creatives/{creative_id}", {})
+        return r.json() if r.status_code == 200 else {}
+
+    def report_rows(self, kind: str, ids: list, start: str, end: str, batch: int = 100) -> list[dict[str, Any]]:
+        """kind: campaigns | creatives → /{kind}/report 일자·대상별 행 (start/end 는 YYYY-MM-DD, 31일 이내)."""
+        key = {"campaigns": "campaignId", "creatives": "creativeId"}[kind]
+        out: list[dict[str, Any]] = []
+        i = 0
+        while i < len(ids):
+            chunk = ids[i:i + batch]
+            r = self._get(f"/{kind}/report", {key: ",".join(map(str, chunk)), "start": start.replace("-", ""),
+                                               "end": end.replace("-", ""), "metricsGroup": "BASIC,PIXEL_SDK_CONVERSION"})
+            if r.status_code == 400 and batch > 20:  # 한 번에 보낼 수 있는 ID 수 초과로 보이면 작게 나눠 재시도
+                batch = 20
+                continue
+            if r.status_code >= 400:
+                raise RuntimeError(f"Kakao {kind}/report {r.status_code}: {r.text[:200]}")
+            out += r.json().get("data", [])
+            i += len(chunk)
+        return out
+
+
+def metrics_of(m: dict[str, Any]) -> dict[str, float]:
+    return {"ad_cost": float(m.get("cost", 0) or 0), "impressions": float(m.get("imp", 0) or 0),
+            "clicks": float(m.get("click", 0) or 0),
+            "conversions": float(m.get("conv_purchase_7d", 0) or m.get("conv_purchase_1d", 0) or 0),
+            "ad_revenue": float(m.get("conv_purchase_p_7d", 0) or m.get("conv_purchase_p_1d", 0) or 0)}
+
+
+def creative_thumb(det: dict[str, Any]) -> str:
+    for k in ("image", "thumbnailImage", "video", "profileImage"):
+        v = det.get(k) or {}
+        url = v.get("url") or v.get("thumbnailUrl") if isinstance(v, dict) else ""
+        if url:
+            return ("https:" + url) if url.startswith("//") else url
+    return ""
