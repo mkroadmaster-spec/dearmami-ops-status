@@ -17,6 +17,21 @@ d7 = (date.today() - timedelta(days=7)).strftime("%Y%m%d")
 J = lambda r: r.json().get("content", []) if r.status_code == 200 else (print("ERR", r.status_code, r.text[:300]) or [])
 
 camps = J(k._get("/campaigns", {}))
+if len(sys.argv) > 1 and sys.argv[1] == "fields":  # 날짜 관련 필드 확인 (값은 날짜만 출력)
+    def show(tag, o):
+        print(tag, "keys:", sorted(o.keys()) if isinstance(o, dict) else type(o))
+        for kk, v in (o.items() if isinstance(o, dict) else []):
+            if any(w in kk.lower() for w in ("date", "time", "schedule", "config", "status")):
+                print("   ", kk, "=", json.dumps(v, ensure_ascii=False)[:200])
+    show("campaign list[0]", camps[0])
+    show("campaign detail", k._get(f"/campaigns/{camps[0]['id']}", {}).json())
+    for c in camps[:40]:
+        gs = J(k._get("/adGroups", {"campaignId": c["id"]}))
+        if gs:
+            show("adGroup list[0]", gs[0])
+            show("adGroup detail", k._get(f"/adGroups/{gs[0]['id']}", {}).json())
+            break
+    sys.exit()
 on = [c for c in camps if c.get("config") == "ON"]
 print("campaigns:", len(camps), "ON:", len(on))
 ids, fmts = [], []
