@@ -26,6 +26,8 @@ def show(title, path, params, n=2):
         print(r.text[:300]); return None
     if isinstance(j, dict):
         print("keys:", list(j.keys()))
+        if r.status_code >= 400:
+            print("error:", json.dumps(j, ensure_ascii=False)[:500])
         rows = j.get("data") or j.get("content") or []
     else:
         rows = j
@@ -35,6 +37,8 @@ def show(title, path, params, n=2):
     return rows
 
 
+for ex in ({"timeUnit": "DAY"}, {"dimension": "CREATIVE_FORMAT"}):
+    show("adGroups 리포트", "/adGroups/report", {"adGroupId": "", "start": d7, "end": d, "metricsGroup": "BASIC", **ex}, 1)
 rep = show("소재 단위 리포트(하루)", "/adAccounts/report", {"level": "CREATIVE", "start": d, "end": d, "metricsGroup": "BASIC,PIXEL_SDK_CONVERSION"})
 show("소재 단위 리포트(7일 · 일자 구분?)", "/adAccounts/report", {"level": "CREATIVE", "start": d7, "end": d, "metricsGroup": "BASIC", "timeUnit": "DAY"}, 3)
 camps = show("캠페인 목록", "/campaigns", {}, 1) or []
@@ -47,3 +51,11 @@ if cid:
         crid = crs[0].get("id") if crs and isinstance(crs[0], dict) else None
         if crid:
             show("소재 상세", f"/creatives/{crid}", {}, 1)
+
+        if crid:
+            r = k._get(f"/creatives/{crid}", {}).json()
+            print("image:", json.dumps(r.get("image"), ensure_ascii=False)[:300], "| thumb:", json.dumps(r.get("thumbnailImage"), ensure_ascii=False)[:300], "| format:", r.get("format"))
+            ids = ",".join(str(c["id"]) for c in crs[:20])
+            for ex in ({}, {"timeUnit": "DAY"}):
+                show("소재 리포트", "/creatives/report", {"creativeId": ids, "start": d7, "end": d, "metricsGroup": "BASIC", **ex}, 3)
+            show("소재 리포트(단건)", "/creatives/report", {"creativeId": crid, "start": d7, "end": d, "metricsGroup": "BASIC"}, 3)
