@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import json
 import time
-from functools import lru_cache
 from typing import Any
 
 import requests
@@ -36,6 +35,9 @@ def _agg(rows: list[dict[str, Any]]) -> dict[str, float]:
     return a
 
 
+_META: dict[tuple[str, str], tuple] = {}
+
+
 class NaverSAClient:
     def __init__(self):
         self.api_key = config.env("NAVER_SA_API_KEY")
@@ -54,25 +56,34 @@ class NaverSAClient:
             raise RuntimeError(f"NaverSA GET {uri} {r.status_code}: {r.text[:300]}")
         return r.json()
 
-    # ---- 메타 (캐시) ----
-    @lru_cache(maxsize=1)
+    # ---- 메타 (실행 단위 캐시) ----
+    # 수집기는 날짜마다 클라이언트를 새로 만든다 → 인스턴스 캐시면 백필 때 매일 목록을 다시 불러 수 시간이 걸린다.
+    # 모듈 수준 캐시(고객 ID 별)로 실행당 1회만 조회.
+    def _cached(self, key: str, fn):
+        k = (self.customer_id, key)
+        if k not in _META:
+            _META[k] = fn()
+        return _META[k]
+
     def campaigns(self) -> tuple[dict[str, Any], ...]:
-        return tuple(self.get("/ncc/campaigns"))
+        return self._cached("campaigns", lambda: tuple(self.get("/ncc/campaigns")))
 
-    @lru_cache(maxsize=1)
     def adgroups(self) -> tuple[dict[str, Any], ...]:
-        out: list[dict[str, Any]] = []
-        for c in self.campaigns():
-            out += self.get("/ncc/adgroups", {"nccCampaignId": c["nccCampaignId"]})
-        return tuple(out)
+        def load():
+            out: list[dict[str, Any]] = []
+            for c in self.campaigns():
+                out += self.get("/ncc/adgroups", {"nccCampaignId": c["nccCampaignId"]})
+            return tuple(out)
+        return self._cached("adgroups", load)
 
-    @lru_cache(maxsize=1)
     def keywords(self) -> tuple[dict[str, Any], ...]:
-        out: list[dict[str, Any]] = []
-        for g in self.adgroups():
-            if g.get("adgroupType", "WEB_SITE") == "WEB_SITE":
-                out += self.get("/ncc/keywords", {"nccAdgroupId": g["nccAdgroupId"]})
-        return tuple(out)
+        def load():
+            out: list[dict[str, Any]] = []
+            for g in self.adgroups():
+                if g.get("adgroupType", "WEB_SITE") == "WEB_SITE":
+                    out += self.get("/ncc/keywords", {"nccAdgroupId": g["nccAdgroupId"]})
+            return tuple(out)
+        return self._cached("keywords", load)
 
     # ---- stats (유형별 분리 호출, 100개 청크) ----
     def stats(self, ids: list[str], d: str) -> list[dict[str, Any]]:
