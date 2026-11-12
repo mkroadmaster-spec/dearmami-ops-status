@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       script:
-        description: "scripts/ 안의 진단 스크립트 이름 (analytics_probe, google_probe)"
+        description: "scripts/ 안의 진단 스크립트 이름 (analytics_probe, google_probe, kakao_probe)"
         default: "analytics_probe"
       args:
         description: "인자 (예: 날짜 YYYY-MM-DD)"
@@ -28,6 +28,9 @@ jobs:
       GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
       GOOGLE_ADS_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_CUSTOMER_ID }}
       GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
+      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_BUSINESS_SECRET: ${{ secrets.KAKAO_BUSINESS_SECRET }}
+      KAKAO_AD_ACCOUNT_ID: ${{ secrets.KAKAO_AD_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
