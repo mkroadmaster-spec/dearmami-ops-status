@@ -66,13 +66,15 @@ def ads_by_channel(store, f: str, t: str) -> list[dict[str, Any]]:
 
 
 def channel_detail(store, f: str, t: str, pf: str, pt: str, trend_days: int = 30) -> list[dict[str, Any]]:
-    """채널별 상세·흐름 — 선택 vs 비교기간 6지표 + 최근 N일 광고비·ROAS 일별."""
+    """채널별 상세·흐름 — 선택 vs 비교기간 6지표 + 최근 N일 광고비·ROAS·매출·클릭·전환율 일별."""
     cur = {r["channel"]: r for r in ads_by_channel(store, f, t)}
     prev = {r["channel"]: r for r in ads_by_channel(store, pf, pt)}
     tf = _date.fromisoformat(t)
     tr_from = (tf - timedelta(days=trend_days - 1)).isoformat()
     cost_tr = {r["date"]: r for r in ads_trend(store, tr_from, t, "ad_cost")}
     rev_tr = {r["date"]: r for r in ads_trend(store, tr_from, t, "ad_revenue")}
+    clk_tr = {r["date"]: r for r in ads_trend(store, tr_from, t, "clicks")}
+    conv_tr = {r["date"]: r for r in ads_trend(store, tr_from, t, "conversions")}
     dates = sorted(set(cost_tr) | set(rev_tr))
     total = sum((r["ad_cost"] or 0) for r in cur.values()) or 1
     out = []
@@ -83,9 +85,13 @@ def channel_detail(store, f: str, t: str, pf: str, pt: str, trend_days: int = 30
             return ((a - b) / b * 100) if (a is not None and b) else None
         costs = [cost_tr.get(d, {}).get(ch, 0) for d in dates]
         revs = [rev_tr.get(d, {}).get(ch, 0) for d in dates]
+        clks = [clk_tr.get(d, {}).get(ch, 0) for d in dates]
+        convs = [conv_tr.get(d, {}).get(ch, 0) for d in dates]
         out.append({"channel": ch, "label": r["label"], "budget_share": (r["ad_cost"] or 0) / total * 100,
                     "metrics": {k: {"cur": r.get(k), "prev": p.get(k), "pct": pct(k)} for k in ("ad_cost", "ad_revenue", "roas", "ad_impressions", "ad_clicks", "cvr", "ctr", "cpc", "ad_conversions", "cpa")},
-                    "trend": {"dates": dates, "ad_cost": costs, "roas": [(rv / c * 100) if c else None for c, rv in zip(costs, revs)]}})
+                    "trend": {"dates": dates, "ad_cost": costs, "roas": [(rv / c * 100) if c else None for c, rv in zip(costs, revs)],
+                              "ad_revenue": revs, "ad_clicks": clks,
+                              "cvr": [(cv / ck * 100) if ck else None for ck, cv in zip(clks, convs)]}})
     out.sort(key=lambda x: -(x["metrics"]["ad_cost"]["cur"] or 0))
     return out
 

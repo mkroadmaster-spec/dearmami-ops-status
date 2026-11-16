@@ -569,11 +569,19 @@ async function loadAds() {
   const mkeys = CFG.lead_gen ? ['ad_cost', 'ad_conversions', 'cpa', 'ad_impressions', 'ad_clicks', 'cvr'] : ['ad_cost', 'ad_revenue', 'roas', 'ad_impressions', 'ad_clicks', 'cvr'];
   $('#chDetail').innerHTML = ad.detail.map((d, i) => `<div class="panel" style="margin-bottom:12px"><h3>${esc(d.label)} <span class="tag ${d.budget_share >= 50 ? 'good' : 'muted'}" style="margin-left:auto">예산 ${d.budget_share.toFixed(0)}%</span></h3>
       <div class="mini">${mkeys.map(k => `<div><div class="l">${LABEL[k]}</div><div class="v">${F(k, d.metrics[k].cur)}</div><div class="d">${dspan(k, d.metrics[k].pct)}</div></div>`).join('')}</div>
-      <div class="sub">최근 30일 광고비 · ROAS 흐름</div><div class="legend"><span><i style="background:${col[d.channel]}"></i>광고비</span><span><i style="background:${S[2]}"></i>ROAS(x)</span></div>
-      <div class="chart sm"><canvas id="chD${i}"></canvas></div><div class="chart xs"><canvas id="chR${i}"></canvas></div></div>`).join('') || '';
+      <div class="sub">최근 30일 흐름</div><div class="legend"><span><i style="background:${col[d.channel]}"></i>광고비</span><span><i style="background:${S[2]}"></i>ROAS(x)</span><span><i style="background:${S[1]}"></i>광고 매출</span><span><i style="background:${S[3]}"></i>클릭수</span><span><i style="background:${S[4]}"></i>전환율(%)</span></div>
+      <div class="chart sm"><canvas id="chD${i}"></canvas></div>
+      <div class="note" style="margin-top:6px">ROAS</div><div class="chart xs"><canvas id="chR${i}"></canvas></div>
+      <div class="note" style="margin-top:6px">광고 매출</div><div class="chart xs"><canvas id="chV${i}"></canvas></div>
+      <div class="note" style="margin-top:6px">클릭수</div><div class="chart xs"><canvas id="chK${i}"></canvas></div>
+      <div class="note" style="margin-top:6px">전환율 (전환 ÷ 클릭)</div><div class="chart xs"><canvas id="chC${i}"></canvas></div></div>`).join('') || '';
   ad.detail.forEach((d, i) => {
     mk(`chD${i}`, { type: 'bar', data: { labels: d.trend.dates, datasets: [barDs('광고비', d.trend.ad_cost, col[d.channel], { maxBarThickness: 16 })] }, options: baseOpts({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` 광고비 ${fmt.krw(c.raw)}` } } } }) });
-    mk(`chR${i}`, { type: 'line', data: { labels: d.trend.dates, datasets: [lineDs('ROAS', d.trend.roas.map(v => v == null ? null : v / 100), S[2], { pointRadius: 0 })] }, options: baseOpts({ scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 3, callback: (v) => v + 'x' } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ROAS ${c.raw == null ? '—' : c.raw.toFixed(2) + 'x'}` } } } }) });
+    const small = (id, name, vals, color, tick, tip) => mk(id, { type: 'line', data: { labels: d.trend.dates, datasets: [lineDs(name, vals, color, { pointRadius: 0 })] }, options: baseOpts({ scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 3, callback: tick } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (c) => c[0].label, label: (c) => ` ${name} ${c.raw == null ? '—' : tip(c.raw)}` } } } }) });
+    small(`chR${i}`, 'ROAS', d.trend.roas.map(v => v == null ? null : v / 100), S[2], (v) => v + 'x', (v) => v.toFixed(2) + 'x');
+    small(`chV${i}`, '광고 매출', d.trend.ad_revenue || [], S[1], (v) => fmt.compact(v), (v) => fmt.krw(v));
+    small(`chK${i}`, '클릭수', d.trend.ad_clicks || [], S[3], (v) => fmt.compact(v), (v) => fmt.count(v));
+    small(`chC${i}`, '전환율', d.trend.cvr || [], S[4], (v) => v + '%', (v) => v.toFixed(2) + '%');
   });
 }
 
@@ -626,6 +634,7 @@ async function loadKeywords() {
   const [kw, pl] = await Promise.all([api(`/api/ads/keywords?${q()}&channel=naver_powerlink&sort=${KWSORT}`), api(`/api/ads/keywords?${q()}&channel=naver_place`)]);
   const k = kw.kpi || {};
   $('#kwCards').innerHTML = [['키워드 수', fmt.count(k.keywords) + '개'], ['광고비 소진', fmt.krw(k.ad_cost)], ['노출수', fmt.count(k.ad_impressions)], ['클릭수', fmt.count(k.ad_clicks)], ['평균 CTR', fmt.pct(k.ctr)], ['평균 CPC', fmt.krw(k.cpc)]].map(([l, v]) => `<div class="card"><div class="lbl">${l}</div><div class="val">${v}</div></div>`).join('');
+  kw.rows = [...kw.rows].sort((a, b) => (b[KWSORT] || 0) - (a[KWSORT] || 0));  // 정적 스냅샷은 광고비순만 들어 있으므로 화면에서 정렬
   $('#kwTitle').textContent = `네이버 파워링크 · 키워드 리포트 (${kw.rows.length})`;
   tbl('tblKw', ['키워드', '캠페인', '광고비 소진', '노출', '클릭', 'CTR', 'CPC', '전환', 'ROAS'], kw.rows.map(r => `<tr><td><span class="kw">${esc(r.keyword)}</span></td><td class="small" style="text-align:left">${esc(r.campaign)} · ${esc(r.adgroup)}</td><td>${fmt.krw(r.ad_cost)}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.krw(r.cpc)}</td><td>${fmt.num(r.ad_conversions)}</td><td>${fmt.x(r.roas)}</td></tr>`), '네이버 검색광고 미연결 — STEP 4');
   tbl('tblPlace', ['광고그룹', '캠페인', '노출', '클릭', 'CTR', 'CPC', '광고비', '전환', 'ROAS'], pl.rows.map(r => `<tr><td><span class="kw">${esc(r.adgroup)}</span></td><td class="small" style="text-align:left">${esc(r.campaign)}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.krw(r.cpc)}</td><td>${fmt.krw(r.ad_cost)}</td><td>${fmt.num(r.ad_conversions)}</td><td>${fmt.x(r.roas)}</td></tr>`), '플레이스 캠페인 없음 또는 미연결');
