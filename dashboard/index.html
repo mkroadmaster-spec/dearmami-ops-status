@@ -227,12 +227,14 @@
       <div class="panel c6"><h3>방문자 상세</h3><div class="sub" id="visSub">카페24 접속통계 기준 · 방문 = 카페24 '방문' 정의</div><div class="tiles" id="visTiles"></div></div>
       <div class="panel c6"><h3>신규 방문 · 첫 구매 추이</h3><div class="sub">카페24 접속통계 신규 방문 · 첫 주문(신규 고객) 건수 · 첫 구매 전환율 = 첫 주문 ÷ 신규 방문</div><div class="legend" id="lgNew"></div><div class="chart sm"><canvas id="chNew"></canvas></div><div class="note" id="newNote"></div></div>
       <div class="panel"><h3>방문자 추이</h3><div class="sub" id="visitorSub">전체 · 신규 · 재방문</div><div class="legend" id="lgVis"></div><div class="chart"><canvas id="chVis"></canvas></div></div>
-      <div class="panel c6"><h3>카테고리 매출 TOP 10</h3><div class="sub">metrics.yaml 그룹 기준</div><div class="chart"><canvas id="chCat"></canvas></div></div>
-      <div class="panel c6"><h3>베스트 상품 TOP 5</h3><div class="sub">매출 기준</div><table id="tblBest"></table></div>
+      <div class="panel c6"><h3>카테고리 매출</h3><div class="sub">카페24 상품 카테고리 기준 · 선택기간 vs 비교기간</div><div class="legend" id="lgCat"></div><div class="chart"><canvas id="chCat"></canvas></div>
+        <div class="note" style="margin-top:10px">비교기간 대비 매출 증감액</div><div class="chart xs"><canvas id="chCatDiff"></canvas></div></div>
+      <div class="panel c6"><h3>베스트 상품 TOP 10</h3><div class="sub">매출 기준 · 비교기간 매출·순위 변화</div><table id="tblBest"></table>
+        <div class="note" style="margin-top:10px">상품별 매출 증감액 (비교기간 대비)</div><div class="chart xs"><canvas id="chBestDiff"></canvas></div></div>
     </div>
     <h2 class="sec">접속통계 <span class="note">카페24 통계 API</span></h2>
     <div class="grid">
-      <div class="panel"><h3>상품별 조회 → 담기 → 주문</h3><div class="sub" id="funnelSub">담기율은 기간 합계로 재계산 · 병목 = 중위값의 절반 미만 · <b>담기 0건 = '담을 수 없는 상태'(품절/판매중지/옵션 미설정) 신호</b></div><table id="saFunnel"></table></div>
+      <div class="panel"><h3>상품별 조회 → 담기 → 주문</h3><div class="sub" id="funnelSub">숫자 아래 = 비교기간 대비 증감 · 담기율은 기간 합계로 재계산 · 병목 = 중위값의 절반 미만 · <b>담기 0건 = '담을 수 없는 상태'(품절/판매중지/옵션 미설정) 신호</b></div><table id="saFunnel"></table></div>
       <div class="panel c6"><h3>자연 검색 유입 검색어</h3><div class="sub">방문 · 비중 · 비교기간 대비</div><table id="saKw"></table></div>
       <div class="panel c6"><h3>담기율 낮은 상품 경고</h3><div class="sub">병목 또는 담기 0건</div><table id="saLow"></table></div>
       <div class="panel c6"><h3>유입 도메인</h3><div class="sub">방문 · 비교기간 대비</div><table id="saDom"></table></div>
@@ -529,16 +531,33 @@ async function loadOps() {
     const nv = sum.cur.new_visitors, no = sum.cur.new_orders;
     $('#newNote').textContent = `기간 합계: 신규 방문 ${fmt.count(nv)} · 첫 주문 ${fmt.count(no)} · 첫 구매 전환율 ${nv ? fmt.pct(no / nv * 100) : '—'} · 회원가입 수는 카페24 '개인정보 조회' 권한을 추가 승인하면 연동할 수 있습니다.`;
   } else { if (charts.chNew) { charts.chNew.destroy(); delete charts.chNew; } $('#newNote').textContent = '카페24 접속통계 수집 전'; }
-  mk('chCat', { type: 'bar', data: { labels: bd.categories.map(c => c.category), datasets: [{ label: '매출', data: bd.categories.map(c => c.sales), backgroundColor: S[0], borderRadius: { topRight: 4, bottomRight: 4 }, borderSkipped: 'left', maxBarThickness: 22 }] },
-    options: baseOpts({ indexAxis: 'y', scales: { x: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5, callback: (v) => fmt.compact(v) } }, y: { grid: { display: false }, ticks: { color: css('--text-2') } } },
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${fmt.krw(c.raw)} (${bd.categories[c.dataIndex].share.toFixed(1)}%)` } } } }) });
-  tbl('tblBest', ['#', '상품', '매출', '비중'], bd.best.slice(0, 5).map((p, i) => `<tr><td>${i + 1}</td><td class="name">${esc(p.product)}</td><td>${fmt.krw(p.sales)}</td><td>${sum.cur.gross_sales ? (p.sales / sum.cur.gross_sales * 100).toFixed(1) + '%' : '—'}</td></tr>`));
+  // 카테고리 매출 — 선택 vs 비교 + 증감액
+  const cats = bd.categories || [], cmpCol = css('--muted-mark'), up = css('--good'), dn = css('--bad');
+  legend('lgCat', [['선택기간', S[0]], ['비교기간', cmpCol]]);
+  const catLbl = cats.map(c => `${c.category}  ${c.pct == null ? (c.sales && !c.prev_sales ? '신규' : '') : (c.pct >= 0 ? '▲' : '▼') + Math.abs(c.pct).toFixed(0) + '%'}`);
+  const hbar = (extra = {}) => baseOpts({ indexAxis: 'y', scales: { x: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5, callback: (v) => fmt.compact(v) } }, y: { grid: { display: false }, ticks: { color: css('--text-2') } } }, ...extra });
+  mk('chCat', { type: 'bar', data: { labels: catLbl, datasets: [
+      { label: '선택기간', data: cats.map(c => c.sales), backgroundColor: S[0], borderRadius: 4, maxBarThickness: 16 },
+      { label: '비교기간', data: cats.map(c => c.prev_sales || 0), backgroundColor: cmpCol, borderRadius: 4, maxBarThickness: 16 }] },
+    options: hbar({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => { const r = cats[c.dataIndex]; return c.datasetIndex ? ` 비교기간 ${fmt.krw(r.prev_sales)}${r.prev_share != null ? ` (${r.prev_share.toFixed(1)}%)` : ''}` : ` 선택기간 ${fmt.krw(r.sales)} (${r.share.toFixed(1)}%)`; } } } } }) });
+  const diffChart = (id, labels, diffs, tip) => ($('#' + id).parentElement.style.height = Math.max(120, labels.length * 26 + 40) + 'px', mk(id, { type: 'bar', data: { labels, datasets: [{ data: diffs, backgroundColor: diffs.map(v => v >= 0 ? up : dn), borderRadius: 3, maxBarThickness: 14 }] },
+    options: hbar({ scales: { x: { grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5, callback: (v) => (v > 0 ? '+' : '') + fmt.compact(v) } }, y: { grid: { display: false }, ticks: { color: css('--text-2'), autoSkip: false, font: { size: 11 } } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: tip } } } }) }));
+  diffChart('chCatDiff', cats.map(c => c.category), cats.map(c => c.sales - (c.prev_sales || 0)), (c) => { const r = cats[c.dataIndex]; return ` ${c.raw >= 0 ? '+' : '−'}${fmt.krw(Math.abs(c.raw))} (${fmt.krw(r.prev_sales)} → ${fmt.krw(r.sales)})`; });
+  // 베스트 상품 — 비교기간 매출·순위 변화 + 증감액
+  const best = (bd.best || []).slice(0, 10);
+  const rk = (p) => p.prev_rank == null ? '<span class="tag good">신규</span>' : p.prev_rank > p.rank ? `<span class="up">▲ ${p.prev_rank - p.rank}</span>` : p.prev_rank < p.rank ? `<span class="down">▼ ${p.rank - p.prev_rank}</span>` : '<span class="note">—</span>';
+  tbl('tblBest', ['#', '상품', '카테고리', '매출', '비교기간', '증감', '순위'], best.map((p, i) => `<tr><td>${i + 1}</td><td class="name">${esc(p.product)}</td><td class="small">${esc(p.category || '')}</td><td>${fmt.krw(p.sales)}</td><td class="small">${fmt.krw(p.prev_sales)}</td><td>${dspan('gross_sales', p.pct)}</td><td>${rk(p)}</td></tr>`), '상품 매출 없음');
+  const short = (n) => { const t = String(n || '').replace(/\s*\[[^\]]*\]\s*$/, ''); return t.length > 12 ? t.slice(0, 12) + '…' : t; };
+  diffChart('chBestDiff', best.map(p => short(p.product)), best.map(p => p.sales - (p.prev_sales || 0)), (c) => { const r = best[c.dataIndex]; return ` ${c.raw >= 0 ? '+' : '−'}${fmt.krw(Math.abs(c.raw))} (${fmt.krw(r.prev_sales)} → ${fmt.krw(r.sales)})`; });
 
   // 접속통계
   const fr = sa.funnel.rows, ft = sa.funnel.totals, pft = sa.prev_funnel_totals, maxV = Math.max(1, ...fr.map(r => r.views));
   const fs = $('#funnelSub'); fs.dataset.base ??= fs.innerHTML;
   fs.innerHTML = fs.dataset.base + (sa.funnel.median_cart_rate != null ? ` · 중위 담기율 ${sa.funnel.median_cart_rate.toFixed(2)}% · 조회수 ${sa.funnel.min_views} 이상` : '');
-  tbl('saFunnel', ['상품', '조회', '담기', '담기율', '주문', '담기→주문', '조회→주문'], fr.map(r => `<tr><td class="name">${esc(r.product)}${r.cannot_add ? '<span class="tag bad">담기 0 · 담을 수 없는 상태?</span>' : r.bottleneck ? '<span class="tag warn">병목</span>' : ''}<div style="height:4px;border-radius:2px;background:var(--s1);opacity:.5;width:${(r.views / maxV * 100).toFixed(0)}%"></div></td><td>${fmt.count(r.views)}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}</td><td>${fmt.count(r.orders)}</td><td>${fmt.pct1(r.order_rate)}</td><td>${r.views ? (r.orders / r.views * 100).toFixed(2) + '%' : '—'}</td></tr>`)
+  const sub = (h) => `<div class="small" style="line-height:1.2">${h}</div>`;
+  const pp = (d) => d == null || Math.abs(d) < 0.005 ? '<span class="note">—</span>' : `<span class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}%p</span>`;
+  tbl('saFunnel', ['상품', '조회 (증감)', '담기', '담기율 (변화)', '주문 (증감)', '담기→주문', '조회→주문'], fr.map(r => `<tr><td class="name">${esc(r.product)}${r.cannot_add ? '<span class="tag bad">담기 0 · 담을 수 없는 상태?</span>' : r.bottleneck ? '<span class="tag warn">병목</span>' : ''}<div style="height:4px;border-radius:2px;background:var(--s1);opacity:.5;width:${(r.views / maxV * 100).toFixed(0)}%"></div></td><td>${fmt.count(r.views)}${sub(dspan('x', r.views_pct))}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}${sub(pp(r.cart_rate_diff))}</td><td>${fmt.count(r.orders)}${sub(r.prev_orders == null && r.orders ? '<span class="tag good">신규</span>' : dspan('gross_sales', r.orders_pct))}</td><td>${fmt.pct1(r.order_rate)}</td><td>${r.views ? (r.orders / r.views * 100).toFixed(2) + '%' : '—'}</td></tr>`)
     .concat(fr.length ? [`<tr><td><b>합계</b></td><td><b>${fmt.count(ft.views)}</b></td><td><b>${fmt.count(ft.cart_adds)}</b></td><td><b>${fmt.pct(ft.cart_rate)}</b> <span class="small">(비교 ${fmt.pct(pft.cart_rate)})</span></td><td><b>${fmt.count(ft.orders)}</b></td><td><b>${fmt.pct1(ft.order_rate)}</b> <span class="small">(비교 ${fmt.pct1(pft.order_rate)})</span></td><td></td></tr>`] : []), '카페24 통계 API 미연결 또는 조회수 부족');
   const pv = (r) => r.new ? '<span class="tag good">신규 ★</span>' : dspan('x', r.pct);
   tbl('saKw', ['검색어', '방문', '비중', '비교 대비'], sa.keywords.map(k => `<tr><td>${esc(k.keyword)}</td><td>${fmt.count(k.visits)}</td><td>${k.share.toFixed(1)}%</td><td>${pv(k)}</td></tr>`));

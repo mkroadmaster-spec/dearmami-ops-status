@@ -59,6 +59,12 @@ def collect(store, d: str) -> list[Fact]:
         out.append(fact(d, "cafe24", "soldout_products", client.products_count(selling="F")))
     except Exception:  # noqa: BLE001
         pass
+    mp: dict[str, str] = {}
+    try:  # 주문 품목에는 카테고리가 없음 → 상품 카테고리로 판정 (처음 보는 상품만 API 조회, DB 캐시)
+        from ..etl import category_map
+        mp = category_map.ensure(store, client, {k[0] for k in prod_sales})
+    except Exception:  # noqa: BLE001
+        pass
     for (no, name, cat), v in prod_sales.items():
-        out.append(fact(d, "cafe24", "product_sales", v, product_no=no, product=name, category=cat))
+        out.append(fact(d, "cafe24", "product_sales", v, product_no=no, product=name, category=mp.get(no) or cat))
     return out

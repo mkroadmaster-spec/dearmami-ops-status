@@ -142,10 +142,12 @@ def api_digest(date: str | None = None) -> dict[str, Any]:
 
 
 @app.get("/api/breakdown")
-def api_breakdown(date_from: str | None = F, date_to: str | None = T) -> dict[str, Any]:
+def api_breakdown(date_from: str | None = F, date_to: str | None = T, cf: str | None = CF, ct: str | None = CT) -> dict[str, Any]:
     f, t = _range(date_from, date_to)
+    pf, pt = _cmp(f, t, cf, ct)
     s = store()
-    return {"categories": breakdown.category_sales(s, f, t), "best": breakdown.best_products(s, f, t)}
+    return {"range": {"from": f, "to": t}, "prev_range": {"from": pf, "to": pt},
+            "categories": breakdown.category_sales(s, f, t, pf=pf, pt=pt), "best": breakdown.best_products(s, f, t, pf=pf, pt=pt)}
 
 
 @app.get("/api/shop/analytics")

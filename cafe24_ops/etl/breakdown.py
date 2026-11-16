@@ -104,23 +104,52 @@ def ads_trend(store, f: str, t: str, metric: str = "ad_cost") -> list[dict[str, 
 
 
 # ---------------- 카페24 ----------------
-def category_sales(store, f: str, t: str, top: int = 10) -> list[dict[str, Any]]:
+def _cat_sums(store, f: str, t: str) -> dict[str, float]:
+    from .category_map import category_of, load
+    mp = load(store)
     cats: dict[str, float] = defaultdict(float)
     for x in store.facts(f, t, source="cafe24", metric="product_sales"):
-        cats[x["dims"].get("category") or "기타"] += float(x["value"] or 0)
+        cats[category_of(mp, x["dims"])] += float(x["value"] or 0)
+    return cats
+
+
+def _pct(a: float | None, b: float | None) -> float | None:
+    return ((a - b) / b * 100) if (a is not None and b) else None
+
+
+def category_sales(store, f: str, t: str, top: int = 10, pf: str | None = None, pt: str | None = None) -> list[dict[str, Any]]:
+    """카테고리(상품 → 카페24 카테고리 그룹) 매출 + 비교기간 매출·증감."""
+    cats = _cat_sums(store, f, t)
+    prev = _cat_sums(store, pf, pt) if (pf and pt) else {}
     total = sum(cats.values()) or 1
-    rows = [{"category": c, "sales": v, "share": v / total * 100} for c, v in cats.items()]
+    ptotal = sum(prev.values()) or 0
+    rows = [{"category": c, "sales": v, "share": v / total * 100, "prev_sales": prev.get(c, 0.0),
+             "prev_share": (prev.get(c, 0.0) / ptotal * 100) if ptotal else None, "pct": _pct(v, prev.get(c))}
+            for c, v in cats.items()]
     rows.sort(key=lambda r: -r["sales"])
     return rows[:top]
 
 
-def best_products(store, f: str, t: str, top: int = 10) -> list[dict[str, Any]]:
-    g = _group(store, f, t, "cafe24", ("product_no", "product"), metric="product_sales")
-    rows = [{"product_no": k[0], "product": k[1], "sales": v.get("product_sales", 0)} for k, v in g.items()]
-    rows.sort(key=lambda r: -r["sales"])
-    for i, r in enumerate(rows):
-        r["rank"] = i + 1
-    return rows[:top]
+def best_products(store, f: str, t: str, top: int = 10, pf: str | None = None, pt: str | None = None) -> list[dict[str, Any]]:
+    """상품별 매출 순위 + 비교기간 매출·순위·증감."""
+    from .category_map import category_of, load
+    mp = load(store)
+
+    def ranked(a: str, b: str) -> list[dict[str, Any]]:
+        g = _group(store, a, b, "cafe24", ("product_no",), metric="product_sales")
+        rows = [{"product_no": k[0], "product": v["_dims"].get("product") or k[0], "category": category_of(mp, v["_dims"]),
+                 "sales": v.get("product_sales", 0)} for k, v in g.items()]
+        rows.sort(key=lambda r: -r["sales"])
+        for i, r in enumerate(rows):
+            r["rank"] = i + 1
+        return rows
+    rows = ranked(f, t)[:top]
+    if pf and pt:
+        pm = {r["product_no"]: r for r in ranked(pf, pt)}
+        for r in rows:
+            p = pm.get(r["product_no"], {})
+            r["prev_sales"], r["prev_rank"], r["pct"] = p.get("sales", 0.0), p.get("rank"), _pct(r["sales"], p.get("sales"))
+    return rows
 
 
 def cart_funnel(store, f: str, t: str, min_views: int = 50) -> dict[str, Any]:
@@ -181,6 +210,12 @@ def shop_analytics(store, f: str, t: str, pf: str | None = None, pt: str | None 
     min_views = 50 if days <= 7 else 200
     funnel = cart_funnel(store, f, t, min_views)
     prev_funnel = cart_funnel(store, pf, pt, min_views)
+    pm = {r["product_no"]: r for r in cart_funnel(store, pf, pt, 1)["rows"]}  # 상품별 비교기간 값 (조회 적어도 포함)
+    for r in funnel["rows"]:
+        p = pm.get(r["product_no"], {})
+        r["prev_views"], r["prev_cart_adds"], r["prev_orders"], r["prev_cart_rate"] = p.get("views"), p.get("cart_adds"), p.get("orders"), p.get("cart_rate")
+        r["views_pct"], r["orders_pct"] = _pct(r["views"], p.get("views")), _pct(r["orders"], p.get("orders"))
+        r["cart_rate_diff"] = (r["cart_rate"] - p["cart_rate"]) if (r["cart_rate"] is not None and p.get("cart_rate") is not None) else None
     members = _group(store, f, t, "cafe24_analytics", ("member_type",))
     member_rows = [{"member_type": k[0], "orders": v.get("member_orders", 0), "sales": v.get("member_sales", 0)}
                    for k, v in members.items() if k[0]]
