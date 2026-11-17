@@ -11,3 +11,4 @@ dist/
 !data/manual/**
 .claude/skills/ops-dashboard/assets/*.zip
 *.skill
+deliver/
