@@ -114,6 +114,10 @@
   .bar .v { text-align: right; color: var(--text-2); }
   @media (max-width: 600px) { .bar { grid-template-columns: 90px 1fr 90px; } }
   /* 채널 상세 */
+  .smg { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+  .smc { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px 6px; min-width: 0; }
+  .smh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
+  .smh .l { font-size: 12px; color: var(--text-2); } .smh b { font-size: 16px; font-weight: 700; } .smh .d { font-size: 11px; margin-left: auto; } .smh .flat { color: var(--text-3); }
   .mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 8px; }
   .mini div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; min-width: 0; }
   .mini .l { font-size: 11px; color: var(--text-3); } .mini .v { font-weight: 700; font-size: 15px; } .mini .d { font-size: 11px; }
@@ -129,6 +133,18 @@
   .kv span { color: var(--text-3); } .kv b { font-weight: 600; text-align: right; }
   .kw { color: var(--s1); font-weight: 700; } .small { font-size: 11px; color: var(--text-3); }
   /* 리포트 */
+  .cmt { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .cmt-h { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin-bottom: 4px; } .cmt-h .pill.xs { margin-left: auto; }
+  .cmt textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 44px; font: inherit; font-size: 13px; line-height: 1.5; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-left: 3px solid var(--s1); border-radius: 8px; padding: 8px 10px; }
+  .cmt textarea:focus { outline: 2px solid var(--s1); outline-offset: 1px; background: var(--card); }
+  .pill.xs { padding: 2px 8px; font-size: 11px; } .pill.dl { font-weight: 600; color: var(--s1); border-color: var(--s1); } .pill:disabled { opacity: .45; cursor: not-allowed; }
+  .pv { font-size: 11px; color: var(--text-3); line-height: 1.3; white-space: nowrap; }
+  @media print {
+    .hero, nav, #brief, #range, footer, #error, .tools, #gate, #authcode, [data-cr] { display: none !important; }
+    body { background: #fff !important; } main { max-width: none !important; padding: 0 !important; }
+    .panel { break-inside: avoid; box-shadow: none !important; border-color: #cbd5e1 !important; } .grid { display: block !important; } .grid > .panel { margin-bottom: 10px; }
+    .cmt textarea { border: 0; border-left: 3px solid #2a78d6; background: #f8fafc; overflow: hidden; resize: none; }
+  }
   .rep-hd .eyebrow { font-size: 11px; color: var(--s1); font-weight: 700; letter-spacing: .04em; }
   .rep-hd h2 { margin: 2px 0 2px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
   .rep-hd .sub { color: var(--text-3); font-size: 12px; }
@@ -234,7 +250,7 @@
     </div>
     <h2 class="sec">접속통계 <span class="note">카페24 통계 API</span></h2>
     <div class="grid">
-      <div class="panel"><h3>상품별 조회 → 담기 → 주문</h3><div class="sub" id="funnelSub">숫자 아래 = 비교기간 대비 증감 · 담기율은 기간 합계로 재계산 · 병목 = 중위값의 절반 미만 · <b>담기 0건 = '담을 수 없는 상태'(품절/판매중지/옵션 미설정) 신호</b></div><table id="saFunnel"></table></div>
+      <div class="panel"><h3>상품별 조회 → 담기 → 주문</h3><div class="sub-nav" id="funnelSort"></div><div class="sub" id="funnelSub">숫자 아래 = 비교기간 대비 증감 · 담기율은 기간 합계로 재계산 · 병목 = 중위값의 절반 미만 · <b>담기 0건 = '담을 수 없는 상태'(품절/판매중지/옵션 미설정) 신호</b></div><table id="saFunnel"></table></div>
       <div class="panel c6"><h3>자연 검색 유입 검색어</h3><div class="sub">방문 · 비중 · 비교기간 대비</div><table id="saKw"></table></div>
       <div class="panel c6"><h3>담기율 낮은 상품 경고</h3><div class="sub">병목 또는 담기 0건</div><table id="saLow"></table></div>
       <div class="panel c6"><h3>유입 도메인</h3><div class="sub">방문 · 비교기간 대비</div><table id="saDom"></table></div>
@@ -368,6 +384,8 @@ function snapGet(path) {
   const u = new URL(path, 'http://x'); const p = u.pathname;
   const fixed = { '/api/config': 'config', '/api/dates': 'dates', '/api/channels': 'channels', '/api/logs': 'logs', '/api/digest': 'digest',
                   '/api/period-comparison': 'period_comparison', '/api/report/weekly': 'report_weekly', '/api/report/monthly': 'report_monthly', '/api/competitors/directory': 'competitor_directory' };
+  if (p === '/api/report/weekly') { const k = u.searchParams.get('week'); return (k && SNAP.reports_weekly && SNAP.reports_weekly[k]) || SNAP.report_weekly; }
+  if (p === '/api/report/monthly') { const k = u.searchParams.get('month'); return (k && SNAP.reports_monthly && SNAP.reports_monthly[k]) || SNAP.report_monthly; }
   if (fixed[p]) return SNAP[fixed[p]];
   const R = SNAP.ranges[`${PRESET === 'custom' ? '7' : PRESET}|${CMP}`] || SNAP.ranges['7|prev'];
   if (p === '/api/ads/keywords') return u.searchParams.get('channel') === 'naver_place' ? R.place : R.keywords;
@@ -552,13 +570,7 @@ async function loadOps() {
   diffChart('chBestDiff', best.map(p => short(p.product)), best.map(p => p.sales - (p.prev_sales || 0)), (c) => { const r = best[c.dataIndex]; return ` ${c.raw >= 0 ? '+' : '−'}${fmt.krw(Math.abs(c.raw))} (${fmt.krw(r.prev_sales)} → ${fmt.krw(r.sales)})`; });
 
   // 접속통계
-  const fr = sa.funnel.rows, ft = sa.funnel.totals, pft = sa.prev_funnel_totals, maxV = Math.max(1, ...fr.map(r => r.views));
-  const fs = $('#funnelSub'); fs.dataset.base ??= fs.innerHTML;
-  fs.innerHTML = fs.dataset.base + (sa.funnel.median_cart_rate != null ? ` · 중위 담기율 ${sa.funnel.median_cart_rate.toFixed(2)}% · 조회수 ${sa.funnel.min_views} 이상` : '');
-  const sub = (h) => `<div class="small" style="line-height:1.2">${h}</div>`;
-  const pp = (d) => d == null || Math.abs(d) < 0.005 ? '<span class="note">—</span>' : `<span class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}%p</span>`;
-  tbl('saFunnel', ['상품', '조회 (증감)', '담기', '담기율 (변화)', '주문 (증감)', '담기→주문', '조회→주문'], fr.map(r => `<tr><td class="name">${esc(r.product)}${r.cannot_add ? '<span class="tag bad">담기 0 · 담을 수 없는 상태?</span>' : r.bottleneck ? '<span class="tag warn">병목</span>' : ''}<div style="height:4px;border-radius:2px;background:var(--s1);opacity:.5;width:${(r.views / maxV * 100).toFixed(0)}%"></div></td><td>${fmt.count(r.views)}${sub(dspan('x', r.views_pct))}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}${sub(pp(r.cart_rate_diff))}</td><td>${fmt.count(r.orders)}${sub(r.prev_orders == null && r.orders ? '<span class="tag good">신규</span>' : dspan('gross_sales', r.orders_pct))}</td><td>${fmt.pct1(r.order_rate)}</td><td>${r.views ? (r.orders / r.views * 100).toFixed(2) + '%' : '—'}</td></tr>`)
-    .concat(fr.length ? [`<tr><td><b>합계</b></td><td><b>${fmt.count(ft.views)}</b></td><td><b>${fmt.count(ft.cart_adds)}</b></td><td><b>${fmt.pct(ft.cart_rate)}</b> <span class="small">(비교 ${fmt.pct(pft.cart_rate)})</span></td><td><b>${fmt.count(ft.orders)}</b></td><td><b>${fmt.pct1(ft.order_rate)}</b> <span class="small">(비교 ${fmt.pct1(pft.order_rate)})</span></td><td></td></tr>`] : []), '카페24 통계 API 미연결 또는 조회수 부족');
+  FUNNEL = sa; renderFunnel();
   const pv = (r) => r.new ? '<span class="tag good">신규 ★</span>' : dspan('x', r.pct);
   tbl('saKw', ['검색어', '방문', '비중', '비교 대비'], sa.keywords.map(k => `<tr><td>${esc(k.keyword)}</td><td>${fmt.count(k.visits)}</td><td>${k.share.toFixed(1)}%</td><td>${pv(k)}</td></tr>`));
   tbl('saLow', ['상품', '조회', '담기', '담기율'], sa.low_cart_products.map(r => `<tr><td class="name">${esc(r.product)}<span class="tag ${r.cannot_add ? 'bad' : 'warn'}">${r.cannot_add ? '담을 수 없는 상태?' : '병목'}</span></td><td>${fmt.count(r.views)}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}</td></tr>`), '경고 상품 없음');
@@ -574,6 +586,24 @@ async function loadOps() {
   $('#planned').innerHTML = chips.map(([l, on, src]) => `<span class="tag ${on ? 'good' : 'muted'}" style="margin:2px 6px 2px 0">${on ? '✓' : '○'} ${l} <small>· ${src}</small></span>`).join('');
 }
 
+// 상품별 조회→담기→주문 — 정렬 버튼(같은 버튼을 다시 누르면 오름/내림 전환). 받은 데이터를 화면에서 정렬한다.
+let FUNNEL = null, FSORT = { key: 'views', dir: -1 };
+const FSORT_KEYS = [['views', '조회'], ['cart_adds', '담기'], ['cart_rate', '담기율'], ['orders', '주문'], ['order_rate', '담기→주문'], ['view_order', '조회→주문'], ['views_pct', '조회 증감'], ['orders_pct', '주문 증감'], ['cart_rate_diff', '담기율 변화']];
+function renderFunnel() {
+  const sa = FUNNEL; if (!sa) return;
+  const ft = sa.funnel.totals, pft = sa.prev_funnel_totals, maxV = Math.max(1, ...sa.funnel.rows.map(r => r.views));
+  const val = (r) => FSORT.key === 'view_order' ? (r.views ? r.orders / r.views : null) : r[FSORT.key];
+  const fr = [...sa.funnel.rows].sort((x, y) => { const a = val(x), b = val(y); if (a == null && b == null) return 0; if (a == null) return 1; if (b == null) return -1; return (a - b) * FSORT.dir; });  // 값 없는 행은 항상 아래
+  $('#funnelSort').innerHTML = '<span class="lab note">정렬</span>' + FSORT_KEYS.map(([k, l]) => `<button class="pill${FSORT.key === k ? ' on' : ''}" data-fs="${k}">${l}${FSORT.key === k ? (FSORT.dir < 0 ? ' ▼' : ' ▲') : ''}</button>`).join('');
+  $$('#funnelSort [data-fs]').forEach(b => b.onclick = () => { FSORT = { key: b.dataset.fs, dir: FSORT.key === b.dataset.fs ? -FSORT.dir : -1 }; renderFunnel(); });
+  const fs = $('#funnelSub'); fs.dataset.base ??= fs.innerHTML;
+  fs.innerHTML = fs.dataset.base + (sa.funnel.median_cart_rate != null ? ` · 중위 담기율 ${sa.funnel.median_cart_rate.toFixed(2)}% · 조회수 ${sa.funnel.min_views} 이상` : '');
+  const sub = (h) => `<div class="small" style="line-height:1.2">${h}</div>`;
+  const pp = (d) => d == null || Math.abs(d) < 0.005 ? '<span class="note">—</span>' : `<span class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}%p</span>`;
+  tbl('saFunnel', ['상품', '조회 (증감)', '담기', '담기율 (변화)', '주문 (증감)', '담기→주문', '조회→주문'], fr.map(r => `<tr><td class="name">${esc(r.product)}${r.cannot_add ? '<span class="tag bad">담기 0 · 담을 수 없는 상태?</span>' : r.bottleneck ? '<span class="tag warn">병목</span>' : ''}<div style="height:4px;border-radius:2px;background:var(--s1);opacity:.5;width:${(r.views / maxV * 100).toFixed(0)}%"></div></td><td>${fmt.count(r.views)}${sub(dspan('x', r.views_pct))}</td><td>${fmt.count(r.cart_adds)}</td><td>${fmt.pct(r.cart_rate)}${sub(pp(r.cart_rate_diff))}</td><td>${fmt.count(r.orders)}${sub(r.prev_orders == null && r.orders ? '<span class="tag good">신규</span>' : dspan('gross_sales', r.orders_pct))}</td><td>${fmt.pct1(r.order_rate)}</td><td>${r.views ? (r.orders / r.views * 100).toFixed(2) + '%' : '—'}</td></tr>`)
+    .concat(fr.length ? [`<tr><td><b>합계</b></td><td><b>${fmt.count(ft.views)}</b></td><td><b>${fmt.count(ft.cart_adds)}</b></td><td><b>${fmt.pct(ft.cart_rate)}</b> <span class="small">(비교 ${fmt.pct(pft.cart_rate)})</span></td><td><b>${fmt.count(ft.orders)}</b></td><td><b>${fmt.pct1(ft.order_rate)}</b> <span class="small">(비교 ${fmt.pct1(pft.order_rate)})</span></td><td></td></tr>`] : []), '카페24 통계 API 미연결 또는 조회수 부족');
+}
+
 // ---------- 광고 ----------
 async function loadAds() {
   const [ad, sum] = await Promise.all([api(`/api/ads/channels?${q()}`), api(`/api/summary?${q()}`)]);
@@ -586,21 +616,51 @@ async function loadAds() {
     ad.channels.map(r => `<tr><td><i class="dot" style="background:${col[r.channel]};margin-right:6px"></i>${esc(r.label)}</td><td>${fmt.krw(r.ad_cost)}</td><td>${dspan('ad_cost', r.prev_ad_cost ? (r.ad_cost - r.prev_ad_cost) / r.prev_ad_cost * 100 : null)}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.krw(r.cpc)}</td><td>${fmt.num(r.ad_conversions)}</td><td>${dspan('x', r.prev_ad_conversions ? (r.ad_conversions - r.prev_ad_conversions) / r.prev_ad_conversions * 100 : null)}</td><td>${fmt.krw(r.cpa)}</td><td>${fmt.pct(r.cvr)}</td><td>${fmt.num(r.ga4_conversions)}</td><td>${fmt.krw(r.ad_revenue)}</td><td>${fmt.x(r.roas)}</td></tr>`), '광고 채널 미연결');
   // 채널별 상세·흐름
   const mkeys = CFG.lead_gen ? ['ad_cost', 'ad_conversions', 'cpa', 'ad_impressions', 'ad_clicks', 'cvr'] : ['ad_cost', 'ad_revenue', 'roas', 'ad_impressions', 'ad_clicks', 'cvr'];
-  $('#chDetail').innerHTML = ad.detail.map((d, i) => `<div class="panel" style="margin-bottom:12px"><h3>${esc(d.label)} <span class="tag ${d.budget_share >= 50 ? 'good' : 'muted'}" style="margin-left:auto">예산 ${d.budget_share.toFixed(0)}%</span></h3>
+  // 채널마다: 미니 카드 6개 + 작은 그래프 6개(광고비·광고 매출·ROAS·클릭수·전환수·전환율). 그래프마다 축이 하나라 눈금이 섞이지 않는다.
+  const tot = (a) => a.reduce((x, v) => x + (v || 0), 0);
+  const TREND = [  // key, 이름, 그래프 종류, 30일 대표값(합계 또는 합계로 다시 계산한 비율), 값 표기, 축 표기
+    ['ad_cost', '광고비', 'bar', (t, a, b) => tot(t.ad_cost.slice(a, b)), fmt.krw, fmt.compact],
+    ['ad_revenue', '광고 매출', 'bar', (t, a, b) => tot(t.ad_revenue.slice(a, b)), fmt.krw, fmt.compact],
+    ['roas', 'ROAS', 'line', (t, a, b) => { const c = tot(t.ad_cost.slice(a, b)); return c ? tot(t.ad_revenue.slice(a, b)) / c : null; }, (v) => v == null ? '—' : v.toFixed(2) + 'x', (v) => v + 'x'],
+    ['ad_clicks', '클릭수', 'line', (t, a, b) => tot(t.ad_clicks.slice(a, b)), fmt.count, fmt.compact],
+    ['ad_conversions', '전환수', 'bar', (t, a, b) => tot((t.ad_conversions || []).slice(a, b)), fmt.num, fmt.compact],
+    ['cvr', '전환율', 'line', (t, a, b) => { const k = tot(t.ad_clicks.slice(a, b)); return k ? tot((t.ad_conversions || []).slice(a, b)) / k * 100 : null; }, (v) => v == null ? '—' : v.toFixed(2) + '%', (v) => v + '%'],
+  ];
+  const BAD_UP = new Set(['ad_cost']);  // 오르면 나쁜 지표는 색을 반대로
+  $('#chDetail').innerHTML = ad.detail.map((d, i) => {
+    const t = d.trend, n = t.dates.length, h = Math.floor(n / 2), miss = t.missing_dates || [];
+    const cells = TREND.map(([k, name, , agg, show], j) => {
+      const all = agg(t, 0, n), early = agg(t, 0, n - h), late = agg(t, n - h, n);
+      const pct = (early && late != null) ? (late - early) / early * 100 : null;
+      const cls = pct == null ? 'flat' : ((pct >= 0) !== BAD_UP.has(k) ? 'up' : 'down');
+      return `<div class="smc"><div class="smh"><span class="l">${name}</span><b>${show(all)}</b><span class="d ${cls}" title="최근 ${h}일 vs 그 앞 ${n - h}일">${fmt.delta(pct)}</span></div><div class="chart xs"><canvas id="chT${i}_${j}"></canvas></div></div>`; }).join('');
+    return `<div class="panel" style="margin-bottom:12px"><h3><i class="dot" style="background:${col[d.channel]};margin-right:8px"></i>${esc(d.label)} <span class="tag ${d.budget_share >= 50 ? 'good' : 'muted'}" style="margin-left:auto">예산 ${d.budget_share.toFixed(0)}%</span></h3>
       <div class="mini">${mkeys.map(k => `<div><div class="l">${LABEL[k]}</div><div class="v">${F(k, d.metrics[k].cur)}</div><div class="d">${dspan(k, d.metrics[k].pct)}</div></div>`).join('')}</div>
-      <div class="sub">최근 30일 흐름</div><div class="legend"><span><i style="background:${col[d.channel]}"></i>광고비</span><span><i style="background:${S[2]}"></i>ROAS(x)</span><span><i style="background:${S[1]}"></i>광고 매출</span><span><i style="background:${S[3]}"></i>클릭수</span><span><i style="background:${S[4]}"></i>전환율(%)</span></div>
-      <div class="chart sm"><canvas id="chD${i}"></canvas></div>
-      <div class="note" style="margin-top:6px">ROAS</div><div class="chart xs"><canvas id="chR${i}"></canvas></div>
-      <div class="note" style="margin-top:6px">광고 매출</div><div class="chart xs"><canvas id="chV${i}"></canvas></div>
-      <div class="note" style="margin-top:6px">클릭수</div><div class="chart xs"><canvas id="chK${i}"></canvas></div>
-      <div class="note" style="margin-top:6px">전환율 (전환 ÷ 클릭)</div><div class="chart xs"><canvas id="chC${i}"></canvas></div></div>`).join('') || '';
+      <div class="sub">최근 ${n}일 흐름 · 굵은 숫자 = ${n}일 합계(ROAS·전환율은 기간 전체 값) · ▲▼ = 최근 ${h}일 vs 그 앞 ${n - h}일 · 점선 = 일 평균 · 마우스를 올리면 같은 날 값이 함께 표시됩니다${miss.length ? ` · <span class="tag warn">회색 띠 = 수집 누락 ${miss.length}일 (${miss[0].slice(5)}${miss.length > 1 ? '~' + miss[miss.length - 1].slice(5) : ''})</span>` : ''}</div>
+      <div class="smg">${cells}</div></div>`; }).join('') || '';
+  const mute = css('--text-3'), band = css('--muted-mark');
   ad.detail.forEach((d, i) => {
-    mk(`chD${i}`, { type: 'bar', data: { labels: d.trend.dates, datasets: [barDs('광고비', d.trend.ad_cost, col[d.channel], { maxBarThickness: 16 })] }, options: baseOpts({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` 광고비 ${fmt.krw(c.raw)}` } } } }) });
-    const small = (id, name, vals, color, tick, tip) => mk(id, { type: 'line', data: { labels: d.trend.dates, datasets: [lineDs(name, vals, color, { pointRadius: 0 })] }, options: baseOpts({ scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 3, callback: tick } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (c) => c[0].label, label: (c) => ` ${name} ${c.raw == null ? '—' : tip(c.raw)}` } } } }) });
-    small(`chR${i}`, 'ROAS', d.trend.roas.map(v => v == null ? null : v / 100), S[2], (v) => v + 'x', (v) => v.toFixed(2) + 'x');
-    small(`chV${i}`, '광고 매출', d.trend.ad_revenue || [], S[1], (v) => fmt.compact(v), (v) => fmt.krw(v));
-    small(`chK${i}`, '클릭수', d.trend.ad_clicks || [], S[3], (v) => fmt.compact(v), (v) => fmt.count(v));
-    small(`chC${i}`, '전환율', d.trend.cvr || [], S[4], (v) => v + '%', (v) => v.toFixed(2) + '%');
+    const t = d.trend, color = col[d.channel], missIdx = new Set((t.missing_dates || []).map(x => t.dates.indexOf(x))), group = [];
+    const gapBand = { id: 'gapBand', beforeDatasetsDraw(c) {  // 수집 누락일을 0 이 아니라 회색 띠로
+      if (!missIdx.size) return; const { ctx, chartArea: a, scales: { x } } = c, w = (x.getPixelForValue(1) - x.getPixelForValue(0)) || a.width;
+      ctx.save(); ctx.globalAlpha = .28; ctx.fillStyle = band; missIdx.forEach(ix => ctx.fillRect(x.getPixelForValue(ix) - w / 2, a.top, w, a.height)); ctx.restore(); } };
+    const sync = { id: 'sync', afterEvent(c, args) {  // 한 그래프에 올리면 같은 채널의 나머지 그래프도 같은 날짜를 가리킨다
+      const ty = args.event.type; if (ty !== 'mousemove' && ty !== 'mouseout') return;
+      const ix = ty === 'mouseout' ? null : (c.getActiveElements()[0] || {}).index;
+      group.forEach(o => { if (o === c) return; const act = (ix == null || o.data.datasets[0].data[ix] == null) ? [] : [{ datasetIndex: 0, index: ix }];
+        o.setActiveElements(act); o.tooltip.setActiveElements(act, { x: 0, y: 0 }); o.update('none'); }); } };
+    TREND.forEach(([k, name, type, , show, tick], j) => {
+      const vals = (t[k] || []).map(v => v == null ? null : (k === 'roas' ? v / 100 : v)), have = vals.filter(v => v != null);
+      const avg = have.length ? have.reduce((a, v) => a + v, 0) / have.length : null;
+      const main = type === 'bar' ? barDs(name, vals, color, { maxBarThickness: 14 }) : lineDs(name, vals, color, { pointRadius: 0, pointHoverRadius: 4, fill: true, backgroundColor: color + '1f', spanGaps: false });
+      const avgDs = { type: 'line', label: '일 평균', data: vals.map(() => avg), borderColor: mute, borderWidth: 1, borderDash: [4, 4], pointRadius: 0, pointHoverRadius: 0, fill: false, _avg: true };
+      mk(`chT${i}_${j}`, { type, data: { labels: t.dates, datasets: [main, avgDs] }, plugins: [gapBand, sync],
+        options: baseOpts({ scales: { x: { grid: { display: false }, ticks: { color: css('--text-3'), maxRotation: 0, autoSkip: true, maxTicksLimit: 4, font: { size: 10 }, callback(v) { return String(this.getLabelForValue(v)).slice(5); } } },
+                                      y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-3'), maxTicksLimit: 3, font: { size: 10 }, callback: tick } } },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: css('--card'), titleColor: css('--text'), bodyColor: css('--text-2'), borderColor: css('--border'), borderWidth: 1, filter: (it) => !it.dataset._avg, displayColors: false,
+            callbacks: { label: (c) => ` ${name} ${c.raw == null ? '—' : show(c.raw)}`, footer: () => avg == null ? '' : `일 평균 ${show(avg)}` } } } }) });
+      group.push(charts[`chT${i}_${j}`]);
+    });
   });
 }
 
@@ -693,40 +753,101 @@ async function loadComp() {
 // ---------- 리포트 (주간/월간, keek 10섹션) ----------
 const REPKEY = { weekly: null, monthly: null };
 function shiftKey(kind, dir) { const k = REPKEY[kind]; if (!k) return; REPKEY[kind] = kind === 'weekly' ? addD(k, 7 * dir) : addM(k + '-01', dir).slice(0, 7); }
+// 스냅샷(정적 페이지)에 들어 있는 기간인지 — 이전/다음 버튼 활성화용
+function repHas(kind, key) { if (!SNAP) return true; const m = kind === 'weekly' ? SNAP.reports_weekly : SNAP.reports_monthly; return !!(m && m[key]); }
+function repNeighbor(kind, dir) { const k = REPKEY[kind]; return kind === 'weekly' ? addD(k, 7 * dir) : addM(k + '-01', dir).slice(0, 7); }
+// 코멘트는 이 브라우저에 저장된다 (업체·리포트 종류·기간·섹션별). 비우면 자동 초안으로 돌아간다.
+const cmtKey = (kind, period, sec) => `rep:${CFG.client_id || 'x'}:${kind}:${period}:${sec}`;
+const cmtGet = (kind, period, sec) => { try { return localStorage.getItem(cmtKey(kind, period, sec)); } catch (e) { return null; } };
+const cmtSet = (kind, period, sec, v) => { try { v == null ? localStorage.removeItem(cmtKey(kind, period, sec)) : localStorage.setItem(cmtKey(kind, period, sec), v); } catch (e) { /* 저장 불가 환경 — 화면에서만 유지 */ } };
+const REPDATA = {};
 async function loadReport(kind) {
   const isW = kind === 'weekly', key = REPKEY[kind];
   const r = await api(isW ? `/api/report/weekly${key ? '?week=' + key : ''}` : `/api/report/monthly${key ? '?month=' + key : ''}`);
-  REPKEY[kind] = isW ? r.range.from : r.range.from.slice(0, 7);
-  const pw = r.prev_word, cl = r.cur_label, pl = r.prev_label, host = $(isW ? '#repW' : '#repM');
+  REPKEY[kind] = isW ? r.range.from : r.range.from.slice(0, 7); REPDATA[kind] = r;
+  const period = REPKEY[kind], pw = r.prev_word, cl = r.cur_label, pl = r.prev_label, host = $(isW ? '#repW' : '#repM');
   const SK = ['gross_sales', 'ad_cost', 'ad_revenue', 'roas', 'orders', 'aov', 'conversion_rate', 'visitors'].filter(k => r.summary[k].cur != null);
   const h = [];
+  const nav = (dir, label) => `<button class="pill" data-rp="${dir}" ${repHas(kind, repNeighbor(kind, dir)) ? '' : 'disabled title="이 기간은 저장돼 있지 않습니다"'}>${label}</button>`;
   h.push(`<div class="panel rep-hd" style="margin-bottom:12px"><div class="eyebrow">${esc(CFG.brand)} · ${isW ? '주간' : '월간'} 리포트</div><h2>${esc(r.title)}</h2><div class="sub">${esc(r.subtitle)}</div>
-    <div class="tools"><button class="pill" data-rp="-1" ${SNAP ? 'disabled' : ''}>◀ 이전</button><span class="tag" style="background:var(--info-bg);color:var(--s1);padding:4px 10px;border-radius:8px">${esc(isW ? r.range.from + ' 주 리포트' : r.range.from.slice(0, 7) + ' 리포트')}</span><button class="pill" data-rp="1" ${SNAP ? 'disabled' : ''}>다음 ▶</button>
-    ${SNAP ? '<span class="note">스냅샷에서는 기본 기간만 · Word 는 서버 실행 시</span>' : `<a class="btn" href="${isW ? '/api/report/weekly.docx?week=' : '/api/report/monthly.docx?month='}${REPKEY[kind]}" download>⬇ Word 다운로드</a>`}</div>
-    <div class="oneline">한 문장 요약 — ${esc(r.one_line)}</div><div class="note">${esc(r.note)}</div>${r.missing_dates.length ? `<div class="note" style="color:var(--warn)">⚠ 수집 누락일 ${r.missing_dates.length}일: ${r.missing_dates.join(', ')}</div>` : ''}</div>`);
+    <div class="tools">${nav(-1, '◀ 이전')}<span class="tag" style="background:var(--info-bg);color:var(--s1);padding:4px 10px;border-radius:8px">${esc(isW ? r.range.from + ' 주 리포트' : r.range.from.slice(0, 7) + ' 리포트')}</span>${nav(1, '다음 ▶')}
+      <button class="pill dl" data-dl="doc">⬇ Word 다운로드</button><button class="pill dl" data-dl="xls">⬇ Excel 다운로드</button><button class="pill dl" data-dl="pdf">⬇ PDF 저장 (인쇄)</button></div>
+    <div class="oneline">한 문장 요약 — ${esc(r.one_line)}</div>
+    <div class="note">모든 표는 <b>${esc(pl)}(이전)</b>과 <b>${esc(cl)}(이번)</b>을 나란히 보여줍니다. 섹션마다 있는 <b>코멘트</b> 칸은 숫자를 근거로 자동 작성된 초안이며 직접 고쳐 쓸 수 있습니다. 고친 내용은 이 브라우저에 저장되고 다운로드 파일에 그대로 들어갑니다.</div>${r.missing_dates.length ? `<div class="note" style="color:var(--warn)">⚠ 수집 누락일 ${r.missing_dates.length}일: ${r.missing_dates.join(', ')} — 합계가 실제보다 작을 수 있습니다.</div>` : ''}</div>`);
   if (r.empty) { host.innerHTML = h.join('') + '<div class="panel"><div class="empty">이 기간에 수집된 날짜가 없습니다 — 데이터 누적 후 지표가 채워집니다.</div></div>'; bindRep(host, kind); return; }
-  const sec = (no, t, body, cls = '') => `<div class="panel ${cls}"><h3><span class="secno">${no}</span>${t}</h3>${body}</div>`;
+  let n = 0; const no = () => String(++n).padStart(2, '0');
+  const cmt = (sec, draft, label = '코멘트') => { const saved = cmtGet(kind, period, sec); return `<div class="cmt"><div class="cmt-h"><b>✎ ${label}</b>${saved != null ? '<span class="tag good">직접 수정함</span>' : '<span class="tag muted">자동 초안</span>'}<button class="pill xs" data-cr="${sec}" title="직접 쓴 내용을 지우고 자동 초안으로 되돌립니다">초안으로 되돌리기</button></div><textarea data-ck="${sec}" data-draft="${esc(draft || '')}" rows="2" placeholder="이 섹션에 대한 코멘트를 적어 주세요">${esc(saved != null ? saved : (draft || ''))}</textarea></div>`; };
+  const sec = (t, body, cls = '') => `<div class="panel ${cls}"><h3><span class="secno">${no()}</span>${t}</h3>${body}</div>`;
+  const th = (...c) => '<tr>' + c.map((x, i) => `<th${i === 0 ? ' style="text-align:left"' : ''}>${x}</th>`).join('') + '</tr>';
+  const pctOf = (a, b) => (a != null && b) ? (a - b) / b * 100 : null;
+  const pv = (prevTxt, deltaHtml) => `<div class="pv">${pw} ${prevTxt}${deltaHtml ? ' · ' + deltaHtml : ''}</div>`;   // 값 아래 '이전 값 · 증감'
+  const pp = (d) => d == null ? '—' : `<span class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}%p</span>`;
+  const UF = { krw: fmt.krw, count: fmt.count, pct1: fmt.pct1, pct: fmt.pct };
   h.push('<div class="grid">');
-  h.push(sec('01', '한 장 요약 · 계정 전체', `<table><tr><th style="text-align:left">지표</th><th>${pl}</th><th>${cl}</th><th>증감</th></tr>` + SK.map(k => { const m = r.summary[k]; return `<tr><td>${LABEL[k]}</td><td>${F(k, m.prev)}</td><td><b>${F(k, m.cur)}</b></td><td>${dspan(k, m.pct)}</td></tr>`; }).join('') + '</table>'));
-  h.push(sec('02', '좋아진 것 · 아쉬운 것', `<div class="two"><div class="gbox good"><b>◆ 개선된 지표</b><ul>${(r.better.length ? r.better : ['—']).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div><div class="gbox bad"><b>◆ 아쉬운 · 점검할 지표</b><ul>${(r.worse.length ? r.worse : ['—']).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div></div>`));
-  if (r.channels.length) h.push(sec('03', `매체별 비교 (${pl} → ${cl})`, `<table><tr><th style="text-align:left">채널</th><th>광고비</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPC</th><th>광고매출</th><th>ROAS</th></tr>` +
-    r.channels.map(c => `<tr><td>${esc(c.label)}</td><td>${fmt.krw(c.ad_cost)} ${dspan('ad_cost', c.pct.ad_cost)}</td><td>${fmt.count(c.ad_impressions)} ${dspan('x', c.pct.ad_impressions)}</td><td>${fmt.count(c.ad_clicks)} ${dspan('x', c.pct.ad_clicks)}</td><td>${fmt.pct(c.ctr)}</td><td>${fmt.krw(c.cpc)} ${dspan('cpc', c.pct.cpc)}</td><td>${fmt.krw(c.ad_revenue)}</td><td>${fmt.x(c.roas)} ${dspan('x', c.pct.roas)}</td></tr>`).join('') + `</table><div class="note" style="margin-top:6px"><b>해석</b> — ${esc(r.channel_note)}</div>`));
+  // 한 장 요약 + 일별 매출 겹쳐 보기
+  h.push(sec('한 장 요약 · 계정 전체', `<div class="two"><div><table>${th('지표', pl, cl, '증감')}` + SK.map(k => { const m = r.summary[k]; return `<tr><td>${LABEL[k]}</td><td>${F(k, m.prev)}</td><td><b>${F(k, m.cur)}</b></td><td>${dspan(k, m.pct)}</td></tr>`; }).join('') + `</table></div>
+    <div><div class="legend"><span><i style="background:var(--s1)"></i>${esc(cl)} 일별 매출</span><span><i style="background:var(--muted-mark)"></i>${esc(pl)} 일별 매출</span></div><div class="chart sm"><canvas id="chRep_${kind}"></canvas></div></div></div>` + cmt('summary', r.comments.summary)));
+  h.push(sec('좋아진 것 · 아쉬운 것', `<div class="two"><div class="gbox good"><b>◆ 개선된 지표</b><ul>${(r.better.length ? r.better : ['—']).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div><div class="gbox bad"><b>◆ 아쉬운 · 점검할 지표</b><ul>${(r.worse.length ? r.worse : ['—']).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div></div>`));
+  if (r.channels.length) h.push(sec(`매체별 비교 (${pl} → ${cl})`, `<table>${th('채널', '광고비', '광고매출', 'ROAS', '클릭', 'CPC', '전환', '전환율')}` +
+    r.channels.map(c => { const p = c.prev || {}, q = c.pct || {}; return `<tr><td>${esc(c.label)}</td><td>${fmt.krw(c.ad_cost)}${pv(fmt.krw(p.ad_cost), dspan('ad_cost', q.ad_cost))}</td><td>${fmt.krw(c.ad_revenue)}${pv(fmt.krw(p.ad_revenue), dspan('x', q.ad_revenue))}</td><td>${fmt.x(c.roas)}${pv(fmt.x(p.roas), dspan('x', q.roas))}</td><td>${fmt.count(c.ad_clicks)}${pv(fmt.count(p.ad_clicks), dspan('x', q.ad_clicks))}</td><td>${fmt.krw(c.cpc)}${pv(fmt.krw(p.cpc), dspan('cpc', q.cpc))}</td><td>${fmt.num(c.ad_conversions)}${pv(fmt.num(p.ad_conversions), dspan('x', q.ad_conversions))}</td><td>${fmt.pct(c.cvr)}${pv(fmt.pct(p.cvr), '')}</td></tr>`; }).join('') + '</table>' + cmt('channels', r.comments.channels)));
   const fg = r.funnel_ga4;
-  if (fg.available) h.push(sec('04', `구매 퍼널 · 단계별 이탈 (GA4, ${cl})`, `<table><tr><th style="text-align:left">단계</th><th>건수</th><th>직전 단계 대비</th><th>첫 단계 대비</th><th>이탈</th></tr>` +
-    fg.steps.map(s => `<tr class="${s.label === fg.bottleneck ? 'hl' : ''}"><td>${esc(s.label)}${s.label === fg.bottleneck ? '<span class="tag bad">병목</span>' : ''}${s.branch ? '<span class="tag muted">분기</span>' : ''}</td><td>${fmt.count(s.count)}</td><td>${s.step_rate == null ? '—' : s.step_rate.toFixed(1) + '%'}</td><td>${s.first_rate == null ? '—' : s.first_rate.toFixed(2) + '%'}</td><td>${s.drop == null ? '—' : '-' + fmt.count(s.drop)}</td></tr>`).join('') + `</table><div class="note" style="margin-top:6px"><b>병목</b> — ${esc(fg.note)} GA4 는 개별 사용자 경로가 아니라 <b>단계별 이벤트 건수 감소</b>로 보는 값입니다.</div>`, 'c7 c8'));
+  if (fg.available) h.push(sec(`구매 퍼널 · 단계별 이탈 (GA4)`, `<table>${th('단계', `${pl} 건수`, `${cl} 건수`, '증감', '직전 단계 대비', `${pw} 통과율`, '이탈')}` +
+    fg.steps.map(s => `<tr class="${s.label === fg.bottleneck ? 'hl' : ''}"><td>${esc(s.label)}${s.label === fg.bottleneck ? '<span class="tag bad">병목</span>' : ''}${s.branch ? '<span class="tag muted">분기</span>' : ''}</td><td>${fmt.count(s.prev_count)}</td><td><b>${fmt.count(s.count)}</b></td><td>${dspan('x', pctOf(s.count, s.prev_count))}</td><td>${s.step_rate == null ? '—' : s.step_rate.toFixed(1) + '%'}</td><td>${s.prev_step_rate == null ? '—' : s.prev_step_rate.toFixed(1) + '%'}</td><td>${s.drop == null ? '—' : '-' + fmt.count(s.drop)}</td></tr>`).join('') + '</table>' + cmt('funnel', r.comments.funnel), 'c8'));
   const c = r.cart;
-  h.push(sec('05', `장바구니 담기 퍼널 · 상품별 (카페24 접속통계)`, `<div class="tiles"><div class="tile"><div class="l">조회 → 담기</div><div class="v">${fmt.pct(c.cart_rate)}</div><div class="note">${pw} ${fmt.pct(c.prev_cart_rate)}</div></div><div class="tile"><div class="l">담기 → 주문</div><div class="v">${fmt.pct1(c.order_rate)}</div><div class="note">${pw} ${fmt.pct1(c.prev_order_rate)}</div></div><div class="tile"><div class="l">상품 담기율 중위값</div><div class="v">${fmt.pct(c.median_cart_rate)}</div></div><div class="tile"><div class="l">집계 대상 조회</div><div class="v">${fmt.count(c.views)}</div></div></div><div class="note" style="margin-top:6px">담기율이 중위값 절반 미만이면 병목으로 봅니다. 담기 0건은 '담을 수 없음'(품절·판매중지·옵션 미설정) 신호.</div>` +
-    (c.low_products.length ? `<table style="margin-top:6px"><tr><th style="text-align:left">담기율 낮은 상품</th><th>조회</th><th>담기</th><th>담기율</th></tr>${c.low_products.map(p => `<tr><td class="name">${esc(p.product)}<span class="tag ${p.cannot_add ? 'bad' : 'warn'}">${p.cannot_add ? '담을 수 없는 상태?' : '병목'}</span></td><td>${fmt.count(p.views)}</td><td>${fmt.count(p.cart_adds)}</td><td>${fmt.pct(p.cart_rate)}</td></tr>`).join('')}</table>` : ''), fg.available ? 'c5 c4' : ''));
-  if (r.best.length) h.push(sec('06', `베스트 상품 (${cl})`, `<table><tr><th style="text-align:left">상품</th><th>매출</th><th>매출 비중</th><th>${pw} 순위</th></tr>` + r.best.map(b => `<tr><td class="name">${esc(b.product)}</td><td>${fmt.krw(b.sales)}</td><td>${b.share.toFixed(1)}%</td><td>${b.prev_rank ? (b.prev_rank > b.rank ? `<span class="up">▲ ${b.prev_rank - b.rank}</span>` : b.prev_rank < b.rank ? `<span class="down">▼ ${b.rank - b.prev_rank}</span>` : '—') : '<span class="tag good">신규</span>'}</td></tr>`).join('') + '</table>', 'c6'));
-  const cu = r.customers;
-  h.push(sec('07', `고객 구성 · 신규/재구매 · 회원/비회원 (${cl})`, `<table><tr><th style="text-align:left">구분</th><th>값</th></tr><tr><td>신규 고객 매출</td><td>${fmt.krw(cu.new_sales)}</td></tr><tr><td>재구매 고객 매출</td><td>${fmt.krw(cu.returning_sales)}</td></tr><tr><td>재구매 매출 비중</td><td>${fmt.pct1(cu.returning_sales_share)}</td></tr><tr><td>회원 주문</td><td>${fmt.count(cu.member_orders)} 건 · 객단가 ${fmt.krw(cu.member_aov)}</td></tr><tr><td>비회원 주문</td><td>${fmt.count(cu.guest_orders)} 건 · 객단가 ${fmt.krw(cu.guest_aov)}</td></tr><tr><td>비회원 주문 비중</td><td>${fmt.pct1(cu.guest_share)}</td></tr><tr><td>모바일 매출 비중</td><td>${fmt.pct1(cu.mobile_share)} <span class="small">(${pw} ${fmt.pct1(cu.prev_mobile_share)})</span></td></tr></table>`, 'c6'));
-  if (r.keywords.length) h.push(sec('08', `자사몰 유입 검색어 (카페24 접속통계, ${cl})`, `<table><tr><th style="text-align:left">검색어</th><th>방문</th><th>비중</th><th>${pw} 대비</th><th>신규</th></tr>` + r.keywords.map(k => `<tr><td>${esc(k.keyword)}</td><td>${fmt.count(k.visits)}</td><td>${k.share.toFixed(1)}%</td><td>${k.prev == null ? '—' : fmt.count(k.prev)}</td><td>${k.new ? '★' : ''}</td></tr>`).join('') + '</table>', 'c6'));
-  if (r.naver_keywords.length) h.push(sec('09', `네이버 검색 · 키워드 흐름 (${cl})`, `<table><tr><th style="text-align:left">키워드</th><th style="text-align:left">캠페인</th><th>광고비</th><th>클릭</th><th>CTR</th><th>CPC</th></tr>` + r.naver_keywords.map(k => `<tr><td><span class="kw">${esc(k.keyword)}</span></td><td class="small" style="text-align:left">${esc(k.campaign)} · ${esc(k.adgroup)}</td><td>${fmt.krw(k.ad_cost)}</td><td>${fmt.count(k.ad_clicks)}</td><td>${fmt.pct(k.ctr)}</td><td>${fmt.krw(k.cpc)}</td></tr>`).join('') + `</table><div class="note" style="margin-top:6px">${esc(r.naver_note)}</div>`, 'c6'));
-  h.push(sec('10', '핵심 인사이트 & 다음 전략 (편집용 초안)', `<div class="ins">${r.insights.map((x, i) => `<div><b>${i + 1}. ${esc(x.title)}</b><p>${esc(x.body)}</p></div>`).join('')}</div><div class="note" style="margin-top:8px">※ 전략은 초안입니다. Word 를 다운받아 편집해 보고에 활용하세요.</div>`));
+  h.push(sec('장바구니 담기 퍼널 (카페24 접속통계)', `<table>${th('지표', pl, cl, '변화')}
+      <tr><td>상품 조회</td><td>${fmt.count(c.prev_views)}</td><td><b>${fmt.count(c.views)}</b></td><td>${dspan('x', pctOf(c.views, c.prev_views))}</td></tr>
+      <tr><td>장바구니 담기</td><td>${fmt.count(c.prev_cart_adds)}</td><td><b>${fmt.count(c.cart_adds)}</b></td><td>${dspan('x', pctOf(c.cart_adds, c.prev_cart_adds))}</td></tr>
+      <tr><td>주문</td><td>${fmt.count(c.prev_orders)}</td><td><b>${fmt.count(c.orders)}</b></td><td>${dspan('x', pctOf(c.orders, c.prev_orders))}</td></tr>
+      <tr><td>조회 → 담기</td><td>${fmt.pct(c.prev_cart_rate)}</td><td><b>${fmt.pct(c.cart_rate)}</b></td><td>${pp(c.cart_rate != null && c.prev_cart_rate != null ? c.cart_rate - c.prev_cart_rate : null)}</td></tr>
+      <tr><td>담기 → 주문</td><td>${fmt.pct1(c.prev_order_rate)}</td><td><b>${fmt.pct1(c.order_rate)}</b></td><td>${pp(c.order_rate != null && c.prev_order_rate != null ? c.order_rate - c.prev_order_rate : null)}</td></tr></table>` +
+    (c.low_products.length ? `<table style="margin-top:8px">${th('담기율 낮은 상품', '조회', '담기', '담기율')}${c.low_products.map(p => `<tr><td class="name">${esc(p.product)}<span class="tag ${p.cannot_add ? 'bad' : 'warn'}">${p.cannot_add ? '담을 수 없는 상태?' : '병목'}</span></td><td>${fmt.count(p.views)}</td><td>${fmt.count(p.cart_adds)}</td><td>${fmt.pct(p.cart_rate)}</td></tr>`).join('')}</table>` : '') + cmt('cart', r.comments.cart), fg.available ? 'c4' : ''));
+  if ((r.categories || []).length) h.push(sec('카테고리 매출', `<table>${th('카테고리', pl, cl, '증감', '비중')}` + r.categories.map(x => `<tr><td>${esc(x.category)}</td><td>${fmt.krw(x.prev_sales)}</td><td><b>${fmt.krw(x.sales)}</b></td><td>${x.prev_sales ? dspan('gross_sales', x.pct) : '<span class="tag good">신규</span>'}</td><td>${x.share.toFixed(1)}%</td></tr>`).join('') + '</table>' + cmt('categories', r.comments.categories), 'c6'));
+  if (r.best.length) h.push(sec('베스트 상품', `<table>${th('상품', pl, cl, '증감', '비중', '순위')}` + r.best.map(b => `<tr><td class="name">${b.rank}. ${esc(b.product)}</td><td>${fmt.krw(b.prev_sales)}</td><td><b>${fmt.krw(b.sales)}</b></td><td>${dspan('gross_sales', b.pct)}</td><td>${b.share.toFixed(1)}%</td><td>${b.prev_rank ? (b.prev_rank > b.rank ? `<span class="up">▲ ${b.prev_rank - b.rank}</span>` : b.prev_rank < b.rank ? `<span class="down">▼ ${b.rank - b.prev_rank}</span>` : '—') : '<span class="tag good">신규</span>'}</td></tr>`).join('') + '</table>' + cmt('best', r.comments.best), 'c6'));
+  if ((r.customer_rows || []).length) h.push(sec('고객 구성 · 신규/재구매 · 회원/비회원', `<table>${th('구분', pl, cl, '변화')}` + r.customer_rows.map(x => { const f = UF[x.unit] || fmt.count; return `<tr><td>${esc(x.label)}</td><td>${f(x.prev)}</td><td><b>${f(x.cur)}</b></td><td>${x.unit.startsWith('pct') ? pp(x.diff) : dspan('x', x.pct)}</td></tr>`; }).join('') + '</table>' + cmt('customers', r.comments.customers), 'c6'));
+  if (r.keywords.length) h.push(sec('자사몰 유입 검색어 (카페24 접속통계)', `<table>${th('검색어', pl, cl, '증감', '비중')}` + r.keywords.map(k => `<tr><td>${esc(k.keyword)}</td><td>${k.prev == null ? '—' : fmt.count(k.prev)}</td><td><b>${fmt.count(k.visits)}</b></td><td>${k.new ? '<span class="tag good">신규 ★</span>' : dspan('x', k.pct)}</td><td>${k.share.toFixed(1)}%</td></tr>`).join('') + '</table>' + cmt('keywords', r.comments.keywords), 'c6'));
+  if (r.naver_keywords.length) h.push(sec('네이버 검색 · 키워드 흐름', `<table>${th('키워드', '캠페인', '광고비', '클릭', 'CTR', 'CPC', '전환')}` + r.naver_keywords.map(k => { const p = k.prev || {}, q = k.pct || {}; return `<tr><td><span class="kw">${esc(k.keyword)}</span>${k.new ? '<span class="tag good">신규</span>' : ''}</td><td class="small" style="text-align:left">${esc(k.campaign)} · ${esc(k.adgroup)}</td><td>${fmt.krw(k.ad_cost)}${pv(fmt.krw(p.ad_cost), dspan('ad_cost', q.ad_cost))}</td><td>${fmt.count(k.ad_clicks)}${pv(fmt.count(p.ad_clicks), dspan('x', q.ad_clicks))}</td><td>${fmt.pct(k.ctr)}${pv(fmt.pct(p.ctr), '')}</td><td>${fmt.krw(k.cpc)}${pv(fmt.krw(p.cpc), '')}</td><td>${fmt.num(k.ad_conversions)}${pv(fmt.num(p.ad_conversions), dspan('x', q.ad_conversions))}</td></tr>`; }).join('') + '</table>' + cmt('naver_keywords', r.comments.naver_keywords)));
+  h.push(sec('핵심 인사이트 & 다음 전략', cmt('insights', r.insights.map((x, i) => `${i + 1}. ${x.title}\n   ${x.body}`).join('\n\n'), '인사이트 · 다음 전략 (자유롭게 수정)')));
   h.push('</div>');
   host.innerHTML = h.join(''); bindRep(host, kind);
+  // 일별 매출 — 이번 기간과 이전 기간을 같은 칸에 겹쳐 본다 (주간: 요일, 월간: 일차)
+  const dc = r.daily_cmp || { cur: [], prev: [] }, len = Math.max(dc.cur.length, dc.prev.length), WD = ['월', '화', '수', '목', '금', '토', '일'];
+  const lab = Array.from({ length: len }, (_, i) => isW ? WD[i % 7] : `${i + 1}일`);
+  const o = baseOpts(); o.scales.x.ticks.callback = function (v) { return this.getLabelForValue(v); };
+  o.plugins.tooltip.callbacks = { title: (c) => { const i = c[0].dataIndex; return `${lab[i]} · ${(dc.cur[i] || {}).date || ''} / ${(dc.prev[i] || {}).date || ''}`; }, label: (c) => ` ${c.dataset.label} ${fmt.krw(c.raw)}` };
+  mk(`chRep_${kind}`, { type: 'line', data: { labels: lab, datasets: [lineDs(cl, dc.cur.map(x => x.gross_sales), css('--s1')), lineDs(pl, dc.prev.map(x => x.gross_sales), css('--muted-mark'), { borderDash: [5, 4], pointRadius: 0 })] }, options: o });
 }
-function bindRep(host, kind) { host.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { shiftKey(kind, +b.dataset.rp); loadReport(kind).catch(e => showErr(e.message)); }); }
+function bindRep(host, kind) {
+  host.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { shiftKey(kind, +b.dataset.rp); loadReport(kind).catch(e => showErr(e.message)); });
+  const period = REPKEY[kind], grow = (t) => { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; };
+  host.querySelectorAll('textarea[data-ck]').forEach(t => { grow(t); t.oninput = () => { grow(t); cmtSet(kind, period, t.dataset.ck, t.value.trim() === '' ? null : t.value);
+    const tag = t.parentElement.querySelector('.tag'); if (tag) { const mine = t.value.trim() !== '' && t.value !== t.dataset.draft; tag.className = 'tag ' + (mine ? 'good' : 'muted'); tag.textContent = mine ? '직접 수정함' : '자동 초안'; } }; });
+  host.querySelectorAll('[data-cr]').forEach(b => b.onclick = () => { cmtSet(kind, period, b.dataset.cr, null); loadReport(kind).catch(e => showErr(e.message)); });
+  host.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => downloadReport(kind, b.dataset.dl));
+}
+// 리포트 다운로드 — 서버 없이 브라우저에서 만든다 (정적 페이지에서도 동작). 화면에 보이는 표·그래프·코멘트 그대로.
+function downloadReport(kind, type) {
+  const host = $(kind === 'weekly' ? '#repW' : '#repM'), r = REPDATA[kind]; if (!r) return;
+  // 파일 이름은 영문·숫자만 — 한글 이름은 일부 환경에서 확장자 없는 'download' 로 저장된다
+  const name = `${(CFG.client_id || 'report').replace(/[^A-Za-z0-9_-]/g, '')}_${kind === 'weekly' ? 'weekly-report' : 'monthly-report'}_${REPKEY[kind]}`;
+  if (type === 'pdf') { const t = document.title; document.title = name; window.print(); document.title = t; return; }   // 인쇄 창에서 'PDF로 저장'
+  const live = [...host.querySelectorAll('textarea, canvas')], doc = host.cloneNode(true), cl = [...doc.querySelectorAll('textarea, canvas')];
+  cl.forEach((el, i) => { const src = live[i]; let rep;
+    if (el.tagName === 'TEXTAREA') { rep = document.createElement('p'); rep.className = 'cmt-text'; rep.innerHTML = esc(src.value).replace(/\n/g, '<br>'); }
+    else { rep = document.createElement('img'); rep.src = src.toDataURL('image/png'); rep.width = 520; }
+    el.replaceWith(rep); });
+  doc.querySelectorAll('.tools, button, .cmt-h .tag, .chart + .note').forEach(e => e.remove());
+  doc.querySelectorAll('.pv').forEach(e => { e.outerHTML = `<br><span class="pv">${e.innerHTML}</span>`; });
+  const style = `body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:10pt;color:#0f172a}h2{font-size:18pt;margin:0 0 4pt}h3{font-size:12pt;margin:14pt 0 5pt;color:#1e3a5f}table{border-collapse:collapse;width:100%;margin:4pt 0}th,td{border:1px solid #cbd5e1;padding:4pt 6pt;text-align:right;font-size:9.5pt;vertical-align:top}th{background:#eef2f7}td:first-child,th:first-child{text-align:left}.up{color:#0f8a3c}.down{color:#d12f2f}.pv,.note,.small,.sub{color:#64748b;font-size:8.5pt}.secno{color:#2a78d6;font-weight:bold;margin-right:4pt}.oneline{background:#eef4fd;padding:6pt 8pt;font-weight:bold}.cmt-h{font-weight:bold;margin-top:6pt}.cmt-text{background:#f8fafc;border-left:3pt solid #2a78d6;padding:5pt 8pt;margin:2pt 0 8pt}.tag{font-size:8pt;color:#b36b00}.eyebrow{color:#2a78d6;font-weight:bold;font-size:9pt}ul{margin:2pt 0 2pt 14pt;padding:0}`;
+  let blob, ext;
+  if (type === 'xls') {   // 표만 모아 Excel 로 (섹션 제목 + 표 + 코멘트)
+    const parts = [...doc.querySelectorAll('.panel')].map(pn => { const t = pn.querySelector('h3, h2'); const cm = pn.querySelector('.cmt-text');
+      return `<table><tr><th colspan="8" style="text-align:left;background:#dbeafe">${t ? esc(t.textContent) : ''}</th></tr></table>` + [...pn.querySelectorAll('table')].map(x => x.outerHTML).join('') + (cm ? `<table><tr><td colspan="8" style="text-align:left">코멘트: ${cm.innerHTML}</td></tr></table>` : '') + '<br>'; }).join('');
+    blob = new Blob(['﻿', `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>${style}</style></head><body>${parts}</body></html>`], { type: 'application/vnd.ms-excel' }); ext = 'xls';
+  } else {
+    blob = new Blob(['﻿', `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${esc(name)}</title><style>@page{size:A4;margin:1.8cm}${style}</style></head><body>${doc.innerHTML}</body></html>`], { type: 'application/msword' }); ext = 'doc';
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 
 // ---------- 채널 연결 ----------
 async function loadChannels() {

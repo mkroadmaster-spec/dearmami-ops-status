@@ -41,7 +41,7 @@ def main() -> int:
             from cafe24_ops import report_docx
             from cafe24_ops.etl import period_report
             data = period_report.weekly_report(store)
-            ok = telegram.send_document(report_docx.build(data), f"weekly-report-{data['range']['from']}.docx", data["title"] + "\n" + data["headline"])
+            ok = telegram.send_document(report_docx.build(data), f"weekly-report-{data['range']['from']}.docx", data["title"] + "\n" + data["one_line"])
             sent.append(f"telegram_docx={'OK' if ok else '실패'}")
     print("\n전송:", ", ".join(sent) if sent else "(SLACK_WEBHOOK_URL / TELEGRAM_BOT_TOKEN 미설정 — 출력만)")
     return 0

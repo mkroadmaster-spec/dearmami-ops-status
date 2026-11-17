@@ -66,7 +66,7 @@ def period_report_data(store, f: str, t: str, pf: str, pt: str, prev_word: str, 
         def cp(k: str) -> float | None:
             return ((r[k] - p[k]) / p[k] * 100) if (r.get(k) is not None and p.get(k)) else None
         channels.append({**r, "pct": {k: cp(k) for k in ("ad_cost", "ad_impressions", "ad_clicks", "ctr", "cpc", "ad_revenue", "roas", "ad_conversions")},
-                         "prev": {k: p.get(k) for k in ("ad_cost", "roas", "ad_conversions")}})
+                         "prev": {k: p.get(k) for k in ("ad_cost", "ad_impressions", "ad_clicks", "ctr", "cpc", "ad_revenue", "roas", "ad_conversions", "cpa", "cvr")}})
     total_cost = sum((r["ad_cost"] or 0) for r in channels) or 1
     ch_note = ""
     if channels:
@@ -78,6 +78,11 @@ def period_report_data(store, f: str, t: str, pf: str, pt: str, prev_word: str, 
 
     # 04 GA4 퍼널
     funnel_ga4 = breakdown.ga4_funnel(store, f, t)
+    if funnel_ga4.get("available"):
+        pstep = {x["event"]: x for x in breakdown.ga4_funnel(store, pf, pt).get("steps", [])}
+        for x in funnel_ga4["steps"]:
+            pv = pstep.get(x["event"], {})
+            x["prev_count"], x["prev_step_rate"] = pv.get("count"), pv.get("step_rate")
 
     # 05 담기 퍼널(상품별)
     fun, pfun = breakdown.cart_funnel(store, f, t, min_views), breakdown.cart_funnel(store, pf, pt, min_views)
@@ -85,16 +90,14 @@ def period_report_data(store, f: str, t: str, pf: str, pt: str, prev_word: str, 
     cart = {"cart_rate": tc["cart_rate"], "order_rate": tc["order_rate"], "median_cart_rate": fun["median_cart_rate"],
             "views": tc["views"], "cart_adds": tc["cart_adds"], "orders": tc["orders"],
             "prev_cart_rate": tp["cart_rate"], "prev_order_rate": tp["order_rate"], "min_views": min_views,
+            "prev_views": tp["views"], "prev_cart_adds": tp["cart_adds"], "prev_orders": tp["orders"], "prev_median_cart_rate": pfun["median_cart_rate"],
             "low_products": [r for r in fun["rows"] if r["bottleneck"] or r["cannot_add"]][:8]}
 
     # 06 베스트
-    best = breakdown.best_products(store, f, t, top=8)
+    best = breakdown.best_products(store, f, t, top=10, pf=pf, pt=pt)  # prev_sales · prev_rank · pct 포함
     tot_sales = cur.get("gross_sales") or sum(b["sales"] for b in best) or 1
     for b in best:
         b["share"] = b["sales"] / tot_sales * 100
-    best_prev = {r["product_no"]: r["rank"] for r in breakdown.best_products(store, pf, pt, top=50)}
-    for b in best:
-        b["prev_rank"] = best_prev.get(b["product_no"])
 
     # 07 고객 구성
     sa = breakdown.shop_analytics(store, f, t, pf, pt)
@@ -107,11 +110,47 @@ def period_report_data(store, f: str, t: str, pf: str, pt: str, prev_word: str, 
                  "guest_share": (no.get("orders", 0) / (mo.get("orders", 0) + no.get("orders", 0)) * 100) if (mo.get("orders") or no.get("orders")) else None,
                  "mobile_share": cur.get("mobile_share"), "prev_mobile_share": prev.get("mobile_share")}
 
+    # 07 비교표 — 이전 기간 값을 같이
+    pm = {m["member_type"]: m for m in breakdown.shop_analytics(store, pf, pt)["members"]}
+    pmo, pno = pm.get("회원", {}), pm.get("비회원", {})
+    aov = lambda m: (m["sales"] / m["orders"]) if m.get("orders") else None  # noqa: E731
+    def crow(label: str, unit: str, c: float | None, pv: float | None) -> dict[str, Any]:
+        diff = (c - pv) if (unit.startswith("pct") and c is not None and pv is not None) else None
+        return {"label": label, "unit": unit, "cur": c, "prev": pv, "pct": breakdown._pct(c, pv) if not unit.startswith("pct") else None, "diff": diff}
+    customer_rows = [
+        crow("신규 고객 매출", "krw", cur.get("new_sales"), prev.get("new_sales")),
+        crow("재구매 고객 매출", "krw", cur.get("returning_sales"), prev.get("returning_sales")),
+        crow("재구매 매출 비중", "pct1", cur.get("returning_sales_share"), prev.get("returning_sales_share")),
+        crow("신규 주문", "count", cur.get("new_orders"), prev.get("new_orders")),
+        crow("재구매 주문", "count", cur.get("returning_orders"), prev.get("returning_orders")),
+        crow("회원 주문", "count", mo.get("orders"), pmo.get("orders")),
+        crow("회원 객단가", "krw", aov(mo), aov(pmo)),
+        crow("비회원 주문", "count", no.get("orders"), pno.get("orders")),
+        crow("비회원 객단가", "krw", aov(no), aov(pno)),
+        crow("모바일 매출 비중", "pct1", cur.get("mobile_share"), prev.get("mobile_share")),
+    ]
+    customer_rows = [r for r in customer_rows if r["cur"] is not None or r["prev"] is not None]
+
+    # 카테고리 매출 (이전 기간 대비)
+    categories = breakdown.category_sales(store, f, t, top=8, pf=pf, pt=pt)
+
+    # 일별 매출·광고비 — 이번 기간과 이전 기간을 같은 칸(1일차, 2일차…)에 겹쳐 그리기 위한 값
+    def daily(a: str, b: str, kp: dict[str, dict]) -> list[dict[str, Any]]:
+        return [{"date": d, "gross_sales": (kp.get(d) or {}).get("gross_sales"), "ad_cost": (kp.get(d) or {}).get("ad_cost"),
+                 "orders": (kp.get(d) or {}).get("orders")} for d in _dates(a, b)]
+    daily_cmp = {"cur": daily(f, t, kpi_cur), "prev": daily(pf, pt, kpi_prev)}
+
     # 08 검색어 (비중·전주 대비·신규)
     keywords = sa["keywords"][:10]
 
     # 09 네이버 키워드 흐름
-    nk = breakdown.keyword_report(store, f, t, sort="ad_cost", top=8)
+    nk = breakdown.keyword_report(store, f, t, sort="ad_cost", top=10)
+    nk_prev = {k["keyword_id"]: k for k in breakdown.keyword_report(store, pf, pt, sort="ad_cost", top=1000)}
+    for k in nk:
+        pk = nk_prev.get(k["keyword_id"], {})
+        k["prev"] = {m: pk.get(m) for m in ("ad_cost", "ad_clicks", "ctr", "cpc", "ad_conversions", "roas")}
+        k["pct"] = {m: breakdown._pct(k.get(m), pk.get(m)) for m in ("ad_cost", "ad_clicks", "ad_conversions")}
+        k["new"] = not pk
     nk_note = ""
     if nk:
         k0 = nk[0]
@@ -160,14 +199,58 @@ def period_report_data(store, f: str, t: str, pf: str, pt: str, prev_word: str, 
         insights.append({"title": f"담기율 낮은 상품 '{p0['product']}' 의 판매 가능 상태를 먼저 확인한다",
                          "body": "담기 0건은 인기 문제가 아니라 '담을 수 없는 상태'(전 옵션 품절·판매중지·옵션 미설정) 신호일 가능성이 큽니다. 광고가 이 상품으로 흐르고 있으면 즉시 중단합니다."})
 
+    # 섹션별 코멘트 초안 — 화면에서 사용자가 고쳐 쓴다 (비교 숫자를 근거로 한 문장씩)
+    def chg(label: str, k: str, fm) -> str:
+        return f"{label} {fm(prev.get(k))} → {fm(cur.get(k))}({_pct(pct(k))})"
+    comments: dict[str, str] = {}
+    comments["summary"] = (f"{prev_word} 대비 " + ", ".join([chg("매출", "gross_sales", _won), chg("주문", "orders", lambda v: f"{v or 0:,.0f}건"), chg("객단가", "aov", _won)]) + ". "
+                           + chg("광고비", "ad_cost", _won) + ", " + chg("ROAS", "roas", _x) + ".")
+    comments["channels"] = ch_note
+    if channels:
+        ups = [c for c in channels if (c["pct"].get("roas") or 0) >= 10]
+        dns = [c for c in channels if (c["pct"].get("roas") or 0) <= -10]
+        if ups:
+            comments["channels"] += " ROAS 개선: " + ", ".join(f"{c['label']}({_pct(c['pct']['roas'])})" for c in ups) + "."
+        if dns:
+            comments["channels"] += " ROAS 하락: " + ", ".join(f"{c['label']}({_pct(c['pct']['roas'])})" for c in dns) + " — 소재·입찰 점검."
+    if funnel_ga4.get("available"):
+        comments["funnel"] = funnel_ga4.get("note", "")
+    if cart["cart_rate"] is not None:
+        d = (cart["cart_rate"] - cart["prev_cart_rate"]) if cart["prev_cart_rate"] is not None else None
+        comments["cart"] = (f"담기율 {cart['cart_rate']:.2f}%" + (f"({prev_word} {cart['prev_cart_rate']:.2f}%, {d:+.2f}%p)" if d is not None else "")
+                            + f", 담기→주문 {cart['order_rate'] or 0:.1f}%" + (f"({prev_word} {cart['prev_order_rate']:.1f}%)" if cart["prev_order_rate"] is not None else "") + ". "
+                            + (f"담기율이 낮은 상품 {len(cart['low_products'])}개는 품절·옵션 상태부터 확인." if cart["low_products"] else "담기율 경고 상품 없음."))
+    if categories:
+        c0 = categories[0]
+        up = max(categories, key=lambda c: c["sales"] - (c["prev_sales"] or 0)); dn = min(categories, key=lambda c: c["sales"] - (c["prev_sales"] or 0))
+        comments["categories"] = (f"{c0['category']}가 매출의 {c0['share']:.0f}%로 1위. "
+                                  + (f"가장 많이 늘어난 카테고리는 {up['category']}({_won(up['sales'] - (up['prev_sales'] or 0))} 증가)" if up["sales"] > (up["prev_sales"] or 0) else "증가한 카테고리 없음")
+                                  + (f", 가장 많이 줄어든 카테고리는 {dn['category']}({_won((dn['prev_sales'] or 0) - dn['sales'])} 감소)." if dn["sales"] < (dn["prev_sales"] or 0) else "."))
+    if best:
+        newb = [b["product"] for b in best if b.get("prev_rank") is None]
+        riser = [b for b in best if b.get("prev_rank") and b["prev_rank"] - b["rank"] >= 3]
+        comments["best"] = (f"1위 {best[0]['product']}({_won(best[0]['sales'])}, 매출의 {best[0]['share']:.1f}%). "
+                            + (f"순위 급상승: {', '.join(b['product'] for b in riser[:3])}. " if riser else "")
+                            + (f"새로 진입: {', '.join(newb[:3])}." if newb else ""))
+    if customers["returning_sales_share"] is not None:
+        ps = prev.get("returning_sales_share")
+        comments["customers"] = (f"재구매 매출 비중 {customers['returning_sales_share']:.1f}%" + (f"({prev_word} {ps:.1f}%)" if ps is not None else "") + ". "
+                                 + chg("신규 주문", "new_orders", lambda v: f"{v or 0:,.0f}건") + ", " + chg("재구매 주문", "returning_orders", lambda v: f"{v or 0:,.0f}건") + ".")
+    if keywords:
+        comments["keywords"] = (f"유입 1위 검색어 '{keywords[0]['keyword']}'(비중 {keywords[0]['share']:.1f}%). "
+                                + (f"새로 등장: {', '.join(new_kw[:5])}." if new_kw else "새로 등장한 검색어 없음."))
+    if nk:
+        comments["naver_keywords"] = nk_note
+
     return {
+        "comments": comments, "customer_rows": customer_rows, "daily_cmp": daily_cmp,
         "range": {"from": f, "to": t}, "prev_range": {"from": pf, "to": pt}, "prev_word": prev_word,
         "one_line": one_line, "missing_dates": missing, "empty": not kpi_cur,
         "summary": summary, "better": better, "worse": worse,
         "channels": channels, "channel_note": ch_note, "funnel_ga4": funnel_ga4, "cart": cart,
         "best": best, "customers": customers, "keywords": keywords, "naver_keywords": nk, "naver_note": nk_note,
         "insights": insights[:4], "ga4_channels": breakdown.ga4_channels(store, f, t, top=8),
-        "categories": breakdown.category_sales(store, f, t, top=6),
+        "categories": categories,
     }
 
 

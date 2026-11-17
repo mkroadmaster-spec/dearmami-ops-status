@@ -27,6 +27,7 @@ from api.main import app  # noqa: E402
 
 PRESETS = (1, 7, 14, 30)
 CMPS = ("prev", "week", "month", "year")
+REPORT_WEEKS, REPORT_MONTHS = 12, 12   # 정적 페이지에 담는 주간·월간 리포트 수
 
 
 def _add_months(d: _date, n: int) -> _date:
@@ -71,6 +72,20 @@ def build_snapshot() -> dict:
         "report_weekly": get("/api/report/weekly"), "report_monthly": get("/api/report/monthly"),
         "competitor_directory": get("/api/competitors/directory"), "ranges": {},
     }
+    # 리포트는 최근 여러 기간을 담아 정적 페이지에서도 이전/다음으로 넘겨 볼 수 있게 한다 (데이터 없는 기간에서 멈춤)
+    snap["reports_weekly"], snap["reports_monthly"] = {}, {}
+    wk = _date.fromisoformat(snap["report_weekly"]["range"]["from"])
+    for i in range(REPORT_WEEKS):
+        r = snap["report_weekly"] if i == 0 else get(f"/api/report/weekly?week={(wk - timedelta(days=7 * i)).isoformat()}")
+        if r.get("empty"):
+            break
+        snap["reports_weekly"][r["range"]["from"]] = r
+    mo = _date.fromisoformat(snap["report_monthly"]["range"]["from"])
+    for i in range(REPORT_MONTHS):
+        r = snap["report_monthly"] if i == 0 else get(f"/api/report/monthly?month={_add_months(mo, -i).isoformat()[:7]}")
+        if r.get("empty"):
+            break
+        snap["reports_monthly"][r["range"]["from"][:7]] = r
     for n in PRESETS:
       for mode in CMPS:
         f = to - timedelta(days=n - 1)

@@ -32,7 +32,7 @@ def main() -> int:
     name = f"monthly-report-{data['range']['from'][:7]}.docx" if a.monthly else f"weekly-report-{data['range']['from']}.docx"
     (out_dir / name).write_bytes(report_docx.build(data))
     print(f"✓ {out_dir / name}")
-    print(f"  {data['title']} · {data['headline']}")
+    print(f"  {data['title']} · {data['one_line']}")
     if data["missing_dates"]:
         print(f"  ⚠ missing_dates: {', '.join(data['missing_dates'])}")
     if data["empty"]:
