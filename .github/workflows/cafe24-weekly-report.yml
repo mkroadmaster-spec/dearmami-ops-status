@@ -1,5 +1,6 @@
 name: cafe24 weekly report
 
+# env 는 daily-collect.yml 과 같아야 한다 (채널 키가 빠지면 그 채널이 수집되지 않는다).
 # 매주 월요일 08:25 KST (= 일 23:25 UTC): 지난주 8일 보정 수집 → 주간 리포트 .docx 아티팩트 업로드 → 9시에는 받아갈 수 있는 상태.
 on:
   schedule:
@@ -21,13 +22,34 @@ jobs:
       CAFE24_MALL_ID: ${{ secrets.CAFE24_MALL_ID }}
       CAFE24_CLIENT_ID: ${{ secrets.CAFE24_CLIENT_ID }}
       CAFE24_CLIENT_SECRET: ${{ secrets.CAFE24_CLIENT_SECRET }}
+      CAFE24_ACCESS_TOKEN: ${{ secrets.CAFE24_ACCESS_TOKEN }}
+      CAFE24_REFRESH_TOKEN: ${{ secrets.CAFE24_REFRESH_TOKEN }}
       GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
       GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
       META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
       META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
+      META_APP_ID: ${{ secrets.META_APP_ID }}
+      META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
       NAVER_SA_API_KEY: ${{ secrets.NAVER_SA_API_KEY }}
       NAVER_SA_SECRET_KEY: ${{ secrets.NAVER_SA_SECRET_KEY }}
       NAVER_SA_CUSTOMER_ID: ${{ secrets.NAVER_SA_CUSTOMER_ID }}
+      NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+      NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+      GFA_AD_ACCOUNT_NO: ${{ secrets.GFA_AD_ACCOUNT_NO }}
+      GFA_MANAGER_ACCOUNT_NO: ${{ secrets.GFA_MANAGER_ACCOUNT_NO }}
+      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_BUSINESS_SECRET: ${{ secrets.KAKAO_BUSINESS_SECRET }}
+      KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+      KAKAO_AD_ACCOUNT_ID: ${{ secrets.KAKAO_AD_ACCOUNT_ID }}
+      GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+      GOOGLE_ADS_ACCESS_TOKEN: ${{ secrets.GOOGLE_ADS_ACCESS_TOKEN }}
+      GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+      GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+      GOOGLE_ADS_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_CUSTOMER_ID }}
+      GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
+      CRITEO_CLIENT_ID: ${{ secrets.CRITEO_CLIENT_ID }}
+      CRITEO_CLIENT_SECRET: ${{ secrets.CRITEO_CLIENT_SECRET }}
+      CRITEO_ADVERTISER_ID: ${{ secrets.CRITEO_ADVERTISER_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

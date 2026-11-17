@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -30,6 +31,12 @@ SCHEMA = [
     """CREATE TABLE IF NOT EXISTS collect_log (
         run_at TEXT, date TEXT, source TEXT, status TEXT, message TEXT)""",
 ]
+
+
+def mask_secrets(text: str) -> str:
+    """오류 문구에 섞여 나오는 키·토큰·계정번호를 가린다 (수집 로그는 화면과 공개 Actions 로그에 나온다)."""
+    text = re.sub(r"(api[-_ ]?key|token|secret|customer[-_ ]?id|account[-_ ]?id)(\"?\s*[:=]\s*\"?)[A-Za-z0-9._\-]{4,}", r"\1\2***", text or "", flags=re.I)
+    return re.sub(r"[0-9a-fA-F]{24,}", "***", text)
 
 
 def _now() -> str:
@@ -113,6 +120,19 @@ class Store:
         """재수집 전 삭제(차원 바뀐 낡은 행 제거). 부분 실패 소스는 호출하지 말 것."""
         self.exec("DELETE FROM facts WHERE date=? AND source=?", (date, source))
 
+    def delete_dim_values(self, date: str, source: str, dim: str, values: set[str]) -> None:
+        """그 날짜·소스에서 dims[dim] 이 values 에 속한 행만 삭제. 광고처럼 한 소스에 여러 채널이 섞인 경우,
+        이번에 수집한 채널만 지우고 나머지 채널은 그대로 둔다 (키가 없는 환경에서 돌아도 남의 채널을 지우지 않게)."""
+        if not values:
+            return
+        for r in self.rows("SELECT DISTINCT dims FROM facts WHERE date=? AND source=?", (date, source)):
+            try:
+                v = json.loads(r["dims"] or "{}").get(dim)
+            except ValueError:
+                v = None
+            if v in values:
+                self.exec("DELETE FROM facts WHERE date=? AND source=? AND dims=?", (date, source, r["dims"]))
+
     def facts(self, date_from: str, date_to: str, source: str | None = None,
               metric: str | None = None) -> list[dict[str, Any]]:
         sql = "SELECT date, source, metric, dims, value FROM facts WHERE date BETWEEN ? AND ?"
@@ -164,7 +184,7 @@ class Store:
     # ---- log -------------------------------------------------------------
     def log(self, date: str, source: str, status: str, message: str = "") -> None:
         self.exec("INSERT INTO collect_log (run_at, date, source, status, message) VALUES (?,?,?,?,?)",
-                  (_now(), date, source, status, message[:2000]))
+                  (_now(), date, source, status, mask_secrets(message)[:2000]))
 
     def recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.rows("SELECT run_at, date, source, status, message FROM collect_log ORDER BY run_at DESC LIMIT ?",

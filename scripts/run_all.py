@@ -18,7 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cafe24_ops import config, pipeline  # noqa: E402
 from cafe24_ops.clients import slack  # noqa: E402
-from cafe24_ops.store import Store  # noqa: E402
+from cafe24_ops.store import Store, mask_secrets  # noqa: E402
+
+CI = bool(os.environ.get("GITHUB_ACTIONS"))  # 공개 저장소의 Actions 로그는 누구나 본다 → 금액은 찍지 않는다
 
 
 def main() -> int:
@@ -57,7 +59,7 @@ def main() -> int:
             if r["sources"].get("cafe24", {}).get("status") == "ok": n_ok[r["date"][:7]] += 1
             for src, st in r["sources"].items():
                 if st["status"] in ("fail", "partial"): failed.add(src); fails += 1
-        for m in sorted(by_m): print(f"  {m}  매출 {by_m[m]:,.0f}  수집일 {n_ok[m]}일")
+        for m in sorted(by_m): print(f"  {m}  수집일 {n_ok[m]}일" + ("" if CI else f"  매출 {by_m[m]:,.0f}"))
         print(f"[run_all] 총 {a.days}일 · 실패/부분실패 {fails}건")
         results = results[-3:]
     for r in results:
@@ -67,10 +69,11 @@ def main() -> int:
             if st["status"] in ("fail", "partial"):
                 failed.add(src)
         k = r["kpi"]
-        print(f"  {r['date']}  {' '.join(parts)}  | 매출 {k.get('gross_sales') or 0:,.0f} 주문 {k.get('orders') or 0:,.0f} 광고비 {k.get('ad_cost') or 0:,.0f}")
+        amounts = "" if CI else f"  | 매출 {k.get('gross_sales') or 0:,.0f} 주문 {k.get('orders') or 0:,.0f} 광고비 {k.get('ad_cost') or 0:,.0f}"
+        print(f"  {r['date']}  {' '.join(parts)}{amounts}")
     for src, st in results[-1]["sources"].items():
         if st["status"] != "ok":
-            print(f"  · {src}: {st['message']}")
+            print(f"  · {src}: {mask_secrets(st['message'])}")
 
     if failed:
         print(f"[run_all] ⚠ 수집 실패/부분 실패 채널: {', '.join(sorted(failed))}")

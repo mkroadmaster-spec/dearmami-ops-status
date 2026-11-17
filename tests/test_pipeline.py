@@ -122,3 +122,18 @@ def test_category_reclassify_after_group_change(tmp_path, monkeypatch):
     assert category_map.reclassify(store, FakeClient()) == {"1": "아우터"}
     assert FakeClient.calls == n  # 원본 카테고리 번호가 보관돼 있어 API 를 다시 부르지 않는다
     category_map._tree = None
+
+
+def test_ads_delete_is_channel_scoped(tmp_path):
+    """광고 재수집은 이번에 받은 채널만 교체한다 — 못 받은 채널의 기존 데이터는 남는다."""
+    from cafe24_ops.store import Store, mask_secrets
+    store = Store(f"sqlite:///{tmp_path}/a.db")
+    d = "2026-11-08"
+    store.upsert_facts([{"date": d, "source": "ads", "metric": "ad_cost", "value": v, "dims": {"channel": ch}}
+                        for ch, v in (("google", 10), ("kakao", 20), ("naver_powerlink", 30))])
+    store.delete_dim_values(d, "ads", "channel", {"naver_powerlink"})
+    store.upsert_facts([{"date": d, "source": "ads", "metric": "ad_cost", "value": 33, "dims": {"channel": "naver_powerlink"}}])
+    got = {f["dims"]["channel"]: f["value"] for f in store.facts(d, d, source="ads")}
+    assert got == {"google": 10, "kakao": 20, "naver_powerlink": 33}
+    m = mask_secrets('Auth failed with api-key: 010000000075d0e9d2772231c22a93c0d8bfea1c682ab657a5c8f6dbec9d94, customer-id: 2069741')
+    assert "0100000000" not in m and "2069741" not in m
