@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       script:
-        description: "scripts/ 안의 진단 스크립트 이름 (analytics_probe, google_probe, kakao_probe, collect_probe, category_probe, category_fill, ads_gap_probe)"
+        description: "scripts/ 안의 진단 스크립트 이름 (analytics_probe, google_probe, kakao_probe, collect_probe, category_probe, category_fill, ads_gap_probe, prune)"
         default: "analytics_probe"
       args:
         description: "인자 (예: 날짜 YYYY-MM-DD)"
