@@ -43,6 +43,8 @@ bash <이 스킬 폴더>/scripts/install_source.sh ~/cafe24-ops-status
 | 수집·백필·배포, "데이터가 안 들어와", DB 용량 | `references/operations.md` |
 | 새 업체에 처음부터 구축, 다른 업체로 복제 | `references/build-procedure.md` |
 | 그래프·탭·채널을 새로 추가 | `references/architecture.md` 의 "새로 추가할 때" + 해당 탭 문서 |
+| 캡처 전체 목록 · 어떤 화면이 어디 찍혀 있나 | `references/screens-index.md` |
+| 최근에 무엇이 바뀌었나 | `references/changelog.md` |
 
 ## 화면 지도 (8탭)
 

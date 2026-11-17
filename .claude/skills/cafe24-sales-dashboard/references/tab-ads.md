@@ -41,6 +41,7 @@ API: `/api/ads/channels`, `/api/summary`
 ## 3. 채널별 상세 · 흐름
 
 캡처: `screens/ads-03-channel-detail-flow.png` (채널 하나의 칸. 채널 수만큼 반복된다)
+캡처(누락·마우스 올림): `screens/ads-03b-gap-band_hover-sync.png` — 수집 누락 6일이 회색 띠로 보이고, 한 그래프에 올린 날짜가 여섯 그래프에 동시에 표시된 모습
 
 - **보여주는 것** — 채널마다 한 칸:
   - 제목 + 예산 비중 태그
