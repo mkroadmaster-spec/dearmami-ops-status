@@ -48,6 +48,8 @@ bash <이 스킬 폴더>/scripts/install_source.sh ~/cafe24-ops-status
 
 ## 화면 지도 (8탭)
 
+업체가 쓰지 않는 탭은 `config/sources.yaml` 의 `hidden_tabs` 로 숨길 수 있다. 동봉 소스는 디어마미 설정이라 GA4·경쟁사 탭이 숨겨져 있다(6탭). 캡처는 8탭 전부를 찍은 것이다.
+
 모든 탭 위에는 공통 영역(헤더·오늘의 브리핑·기간 선택)이 있다 → `references/common-ui.md`
 
 | 탭 | 무엇을 보는가 | 문서 | 전체 캡처 |

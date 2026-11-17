@@ -45,6 +45,7 @@ ads:                          # 자격증명 없는 채널은 자동 스킵
     customer_id: ""
 
 lead_gen: false               # true = 리드젠(상담·문의형): 전환=결과, CPA/CVR 중심
+hidden_tabs: []               # 화면에서 숨길 탭: ops, ads, history, ga4, comp, weekly, monthly, channels (예: [ga4, comp])
 
 competitors:                  # name=데이터랩 키워드(최대 5), url/insta/domain/fb_query=경쟁사 모니터링 딥링크
 {competitors}

@@ -13,6 +13,8 @@
 
 ## 2. 탭
 
+**탭 숨기기**: 업체가 쓰지 않는 탭은 `config/sources.yaml` 의 `hidden_tabs: [ga4, comp]` 로 숨긴다(메뉴에서 빠지고, 그 탭의 데이터도 불러오지 않는다. `comp` 를 숨기면 경쟁사 수집도 건너뛴다). 디어마미는 GA4·경쟁사 탭을 숨겼다 — **동봉 소스를 그대로 설치하면 6개 탭만 보인다.** 캡처처럼 8개를 모두 보려면 `hidden_tabs: []` 로 바꾼다. 새 업체는 `new_client.py` 가 빈 목록으로 만든다.
+
 8개 탭. 주소 뒤 해시로 바로 열 수 있다: `#ops` `#ads` `#history` `#ga4` `#comp` `#weekly` `#monthly` `#channels`.
 탭을 누르면 `section#tab-<이름>` 만 보이고 나머지는 `hidden`.
 

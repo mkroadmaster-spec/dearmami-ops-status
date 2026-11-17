@@ -47,7 +47,8 @@ REGISTRY: list[Collector] = [
               required_env=(), is_configured=ad_campaign.is_configured,
               collect=ad_campaign.collect, demo=demo.ad_campaign, doc="docs/SETUP-GUIDE.md", tab="광고 히스토리"),
     Collector(name="competitor", label="네이버 데이터랩 (경쟁사 트렌드)", step="STEP 5",
-              required_env=naver_datalab.REQUIRED_ENV, is_configured=naver_datalab.is_configured,
+              required_env=naver_datalab.REQUIRED_ENV,
+              is_configured=lambda: naver_datalab.is_configured() and "comp" not in (config.sources().get("hidden_tabs") or []),  # 탭을 숨긴 업체는 수집도 안 함
               collect=competitor.collect, demo=demo.competitor, doc="docs/CONNECT-GUIDE.md#step-3", tab="광고"),
 ]
 

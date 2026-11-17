@@ -4,6 +4,8 @@ brand: "디어마미"
 site_url: https://dearmami.co.kr
 timezone: Asia/Seoul
 lead_gen: false               # true = 리드젠(상담·문의형): 전환=결과(등록/리드), ROAS 대신 CPA/CVR 중심
+# 화면에서 숨길 탭 (쓰지 않는 메뉴). 가능한 값: ops, ads, history, ga4, comp, weekly, monthly, channels
+hidden_tabs: [ga4, comp]      # 디어마미: GA4·경쟁사 모니터링 탭 미사용 (2026-11-17 요청)
 
 shop:
   platform: cafe24            # cafe24 | none  ← TODO 담당자 확인: 어드민 주소가 https://<몰아이디>.cafe24.com 이면 cafe24

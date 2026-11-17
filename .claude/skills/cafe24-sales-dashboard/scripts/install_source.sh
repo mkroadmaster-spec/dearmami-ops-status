@@ -30,5 +30,6 @@ echo "③ 데모 데이터 75일 생성 완료"
 .venv/bin/python -m pytest -q | tail -1
 mkdir -p dist
 .venv/bin/python scripts/export_static.py --out dist/index.html | tail -1
-echo "④ 완료 — 브라우저로 열어 8탭을 확인하세요: $DEST/dist/index.html"
+echo "④ 완료 — 브라우저로 열어 확인하세요: $DEST/dist/index.html"
+echo "   (동봉 설정은 GA4·경쟁사 탭을 숨겨 6탭입니다. 8탭 전부 보려면 config/sources.yaml 의 hidden_tabs 를 [] 로 바꾸고 export_static.py 를 다시 실행)"
 echo "   다음 단계: 스킬의 references/build-procedure.md (새 업체) 또는 references/channels.md (채널 연결)"

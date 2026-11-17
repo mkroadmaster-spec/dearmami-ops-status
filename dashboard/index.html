@@ -471,7 +471,9 @@ $('#baseDate').onchange = () => { if (SNAP) { $('#baseDate').value = BASE; retur
 
 // ---------- 탭 ----------
 const TABS = ['ops', 'ads', 'history', 'ga4', 'comp', 'weekly', 'monthly', 'channels'];
+const tabHidden = (t) => (CFG.hidden_tabs || []).includes(t);   // 업체가 쓰지 않는 탭 (config/sources.yaml 의 hidden_tabs)
 function showTab(name) {
+  if (tabHidden(name)) name = 'ops';
   $$('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
   TABS.forEach(t => $('#tab-' + t).classList.toggle('hidden', t !== name));
   $('#range').classList.toggle('hidden', !DATA_TABS.includes(name));
@@ -887,7 +889,7 @@ async function loadChannels() {
 
 async function loadAll() {
   $('#error').classList.add('hidden');
-  try { await Promise.all([loadBrief(), loadOps(), loadAds(), loadHistory(), loadGa4(), loadComp()]); }
+  try { await Promise.all([loadBrief(), loadOps(), loadAds(), loadHistory(), tabHidden('ga4') ? null : loadGa4(), tabHidden('comp') ? null : loadComp()]); }
   catch (e) { showErr(`데이터 로드 실패: ${e.message}\n→ 수집이 아직 없으면: python scripts/run_all.py --mode demo --days 75`); console.error(e); }
 }
 
@@ -907,6 +909,7 @@ async function loadAll() {
   try {
     if (ENC && !SNAP) SNAP = await askPassword();
     CFG = await api('/api/config'); const dates = await api('/api/dates');
+    $$('nav button').forEach(b => { if (tabHidden(b.dataset.tab)) b.remove(); });
     $('#brand').textContent = `${CFG.brand} 운영 대시보드`; document.title = `${CFG.brand} 운영 대시보드`; $('#siteUrl').textContent = CFG.site_url || '';
     const mb = $('#modeBadge'); mb.textContent = CFG.mode === 'demo' ? '데모 데이터' : 'LIVE'; mb.classList.add(CFG.mode === 'demo' ? 'demo' : 'live');
     $('#lastRun').textContent = CFG.last_run_at ? `· 수집 ${CFG.last_run_at.replace('T', ' ').slice(0, 16)} UTC` : '· 수집 기록 없음';

@@ -93,7 +93,7 @@ def api_config() -> dict[str, Any]:
     s = store()
     return {"brand": src.get("brand"), "client_id": src.get("client_id"), "site_url": src.get("site_url"),
             "mall_id": src["shop"].get("mall_id"), "platform": src["shop"].get("platform"),
-            "lead_gen": bool(src.get("lead_gen")), "mode": s.kv_get("data_mode") or config.mode(),
+            "lead_gen": bool(src.get("lead_gen")), "hidden_tabs": list(src.get("hidden_tabs") or []), "mode": s.kv_get("data_mode") or config.mode(),
             "metrics": config.metrics(), "last_run_at": s.kv_get("last_run_at")}
 
 

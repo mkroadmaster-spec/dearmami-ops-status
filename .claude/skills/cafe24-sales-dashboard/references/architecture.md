@@ -147,7 +147,7 @@ data/manual/<채널>/    CSV 업로드 채널
 
 ## 7. 설정 파일
 
-- `config/sources.yaml` — 업체 값: `client_id`, `brand`, `site_url`, `lead_gen`, `shop.platform`/`mall_id`, `competitors[]`
+- `config/sources.yaml` — 업체 값: `client_id`, `brand`, `site_url`, `lead_gen`, `hidden_tabs`(숨길 탭), `shop.platform`/`mall_id`, `competitors[]`
 - `config/metrics.yaml` — `summary_cards`(카드 구성), `targets.monthly_sales`(월 목표), `category_groups`(카테고리 그룹)
 - `config/secrets.env` — 로컬 실행용 키(gitignore). 견본은 `secrets.env.example`. 운영은 GitHub Secrets 에 같은 이름으로.
 - `CAFE24_OPS_MODE` = `live` | `demo`
