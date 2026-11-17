@@ -2,6 +2,7 @@
 
 주문 품목(items)에는 카테고리가 없어서(전부 '기타'로 보이던 원인) 상품 상세의 category 목록 + 카테고리 트리로 판정한다.
 결과는 DB(app_kv 'cafe24_product_category')에 쌓아 두고 집계할 때 상품번호로 붙인다 → 과거 매출도 재수집 없이 분류된다.
+상품의 원본 카테고리 번호도 같이 보관(app_kv 'cafe24_product_catnos') → category_groups 를 바꾼 뒤 reclassify() 로 다시 분류.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from typing import Any
 from .. import config
 
 KV = "cafe24_product_category"
+KV_RAW = "cafe24_product_catnos"   # 상품번호 → [카테고리 번호] (그룹 정의를 바꿨을 때 API 재조회 없이 다시 분류)
 _tree: dict[int, list[str]] | None = None  # category_no → [깊은 단계 → 얕은 단계 이름]
 
 
@@ -83,6 +85,13 @@ def _categories_of(client, nos: list[str]) -> dict[str, list[int]]:
     return out
 
 
+def _load_raw(store) -> dict[str, list[int]]:
+    try:
+        return json.loads(store.kv_get(KV_RAW) or "{}")
+    except ValueError:
+        return {}
+
+
 def ensure(store, client, product_nos: list[str] | set[str]) -> dict[str, str]:
     """처음 보는 상품만 조회해 매핑에 추가. 반환: 전체 매핑."""
     mp = load(store)
@@ -91,8 +100,27 @@ def ensure(store, client, product_nos: list[str] | set[str]) -> dict[str, str]:
         return mp
     tree = _load_tree(client)
     grp = groups()
+    raw = _load_raw(store)
     for no, cats in _categories_of(client, todo).items():
+        raw[no] = cats
         mp[no] = classify(cats, tree, grp)
+    store.kv_set(KV_RAW, json.dumps(raw))
+    store.kv_set(KV, json.dumps(mp, ensure_ascii=False))
+    return mp
+
+
+def reclassify(store, client) -> dict[str, str]:
+    """category_groups 를 고친 뒤 전체 상품을 다시 분류. 원본 카테고리 번호가 보관된 상품은 API 재조회 없이,
+    없는 상품(예전에 채운 것)만 다시 조회한다. 반환: 전체 매핑."""
+    mp = load(store)
+    raw = _load_raw(store)
+    tree = _load_tree(client)
+    grp = groups()
+    missing = sorted(n for n in mp if n not in raw)
+    if missing:
+        raw.update(_categories_of(client, missing))
+        store.kv_set(KV_RAW, json.dumps(raw))
+    mp = {no: classify(cats, tree, grp) for no, cats in raw.items()}
     store.kv_set(KV, json.dumps(mp, ensure_ascii=False))
     return mp
 

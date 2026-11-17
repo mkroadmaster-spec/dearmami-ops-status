@@ -93,3 +93,32 @@ def test_demo_products_follow_client_categories():
     cats = {p[2] for p in prods}
     assert "원피스" in cats and len(prods) <= 10
     assert demo.keywords()[0] == "디어마미"
+
+
+def test_category_reclassify_after_group_change(tmp_path, monkeypatch):
+    """category_groups 를 바꾼 뒤 reclassify 하면 이미 '기타'였던 상품도 다시 분류된다 (API 재조회 없이)."""
+    from cafe24_ops.etl import category_map
+    from cafe24_ops.store import Store
+
+    class FakeClient:
+        calls = 0
+
+        def get(self, path, params=None):
+            FakeClient.calls += 1
+            if path == "/admin/categories":
+                return {"categories": [{"category_no": 10, "full_category_name": {"1": "<b>아우터</b>", "2": "점퍼"}},
+                                       {"category_no": 20, "full_category_name": {"1": "★세일"}}]}
+            if path == "/admin/products":
+                return {"products": [{"product_no": 1, "category": [{"category_no": 10}, {"category_no": 20}]}]}
+            raise AssertionError(path)
+
+    store = Store(f"sqlite:///{tmp_path}/c.db")
+    category_map._tree = None
+    monkeypatch.setattr(category_map, "groups", lambda: {"상의": ["티셔츠"], "기타": []})
+    assert category_map.ensure(store, FakeClient(), {"1"}) == {"1": "기타"}
+    assert category_map.ensure(store, FakeClient(), {"1"}) == {"1": "기타"}  # 이미 있는 상품은 다시 보지 않는다
+    monkeypatch.setattr(category_map, "groups", lambda: {"아우터": ["점퍼"], "기타": []})
+    n = FakeClient.calls
+    assert category_map.reclassify(store, FakeClient()) == {"1": "아우터"}
+    assert FakeClient.calls == n  # 원본 카테고리 번호가 보관돼 있어 API 를 다시 부르지 않는다
+    category_map._tree = None

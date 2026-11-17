@@ -35,5 +35,5 @@ for no in sys.argv[1:]:
         print("  count:", c.get(f"/admin/categories/{no}/products/count", {"display_group": 1}))
     except Exception as e:  # noqa: BLE001
         print("  count ERR", str(e)[:200])
-p1 = c.get("/admin/products/33529", {})
+p1 = c.get(f"/admin/products/{ps[0]['product_no']}", {}) if ps else {}
 print("\nproduct detail category:", json.dumps((p1.get("product") or {}).get("category"), ensure_ascii=False)[:300])

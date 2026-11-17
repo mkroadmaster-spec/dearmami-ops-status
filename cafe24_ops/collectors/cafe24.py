@@ -63,8 +63,8 @@ def collect(store, d: str) -> list[Fact]:
     try:  # 주문 품목에는 카테고리가 없음 → 상품 카테고리로 판정 (처음 보는 상품만 API 조회, DB 캐시)
         from ..etl import category_map
         mp = category_map.ensure(store, client, {k[0] for k in prod_sales})
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e:  # noqa: BLE001 — 매출 수집은 계속하되, 조용히 '기타'가 되지 않게 로그에 남긴다
+        store.log(d, "cafe24_category", "fail", f"상품 카테고리 조회 실패(매출은 저장됨): {type(e).__name__}: {str(e)[:200]}")
     for (no, name, cat), v in prod_sales.items():
         out.append(fact(d, "cafe24", "product_sales", v, product_no=no, product=name, category=mp.get(no) or cat))
     return out

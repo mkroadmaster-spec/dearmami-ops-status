@@ -48,7 +48,12 @@ API: `/api/ads/channels`, `/api/summary`
   - **최근 30일 흐름 그래프 5개**(위에서부터): 광고비(막대) → ROAS → 광고 매출 → 클릭수 → 전환율(전환 ÷ 클릭)
 - **출처**: `/api/ads/channels` 의 `detail` → `breakdown.channel_detail()`. `trend` 안에 `dates`, `ad_cost`, `roas`, `ad_revenue`, `ad_clicks`, `cvr` 배열.
 - **주의**: 흐름 그래프는 기간 선택과 무관하게 **선택기간 끝 날짜 기준 최근 30일**이다. 채널 순서는 광고비가 큰 순.
-- **그래프를 더 넣고 싶을 때**: `channel_detail()` 의 `trend` 에 배열을 추가하고, `loadAds()` 의 `small(id, 이름, 값, 색, 축 표기, 툴팁)` 한 줄과 `<canvas>` 한 줄을 추가한다.
+- **그래프를 더 넣고 싶을 때** (예: CPC 흐름) — 네 곳을 고친다:
+  1. `breakdown.channel_detail()` 의 `trend` 에 배열 추가 (예: `"cpc": [(c / k) if k else None for c, k in zip(costs, clks)]`)
+  2. `loadAds()` 의 채널 칸 HTML 에 이름표 + 캔버스 한 줄: `<div class="note">CPC</div><div class="chart xs"><canvas id="chP${i}"></canvas></div>`
+  3. 같은 HTML 의 범례(`<div class="legend">`)에 `<span><i style="background:${S[5]}"></i>CPC</span>`
+  4. 그리는 줄: ``small(`chP${i}`, 'CPC', d.trend.cpc || [], S[5], 축 표기 함수, 툴팁 함수)``
+  - `/api/ads/channels` 는 이미 스냅샷에 들어 있으므로 `export_static.py`·`snapGet()` 은 건드리지 않는다. `trend` 키를 검사하는 테스트는 없으니 데모 화면으로 직접 확인한다.
 
 ## 4. 미연동 광고 채널 안내
 

@@ -87,8 +87,15 @@
 - **카테고리 판정이 핵심이다**: 카페24 주문 품목에는 카테고리가 **들어 있지 않다**. 그대로 두면 매출이 전부 '기타'가 된다.
   - `cafe24_ops/etl/category_map.py` 가 상품 상세 API(`/admin/products/{no}` 의 `category` 목록)와 카테고리 트리(`/admin/categories`)로 상품마다 그룹을 정한다.
   - 그룹 정의는 `config/metrics.yaml` 의 `category_groups` (예: `원피스: ["원피스", "소매원피스", …]`). 상품이 속한 카테고리 경로를 **깊은 단계부터** 이름으로 대조하고, 여러 그룹에 걸리면 많이 걸린 쪽을 택한다. 세일·NEW·BEST 같은 기획전 카테고리는 이름이 안 맞아 자동으로 빠진다.
-  - 결과는 DB `app_kv` 의 `cafe24_product_category` 에 쌓는다. 집계할 때 상품번호로 붙이므로 **분류를 바꾸면 과거 매출에도 바로 반영**된다(재수집 불필요).
-  - 새 업체에서는 `scripts/category_probe.py` 로 카테고리 트리를 먼저 보고 그룹을 정한 뒤 `scripts/category_fill.py` 로 과거 판매 상품을 한 번 채운다(1만 상품에 약 1시간).
+  - 결과는 DB `app_kv` 의 `cafe24_product_category`(상품번호 → 그룹)에 쌓는다. 집계할 때 상품번호로 붙이므로 **매출을 재수집하지 않아도** 과거 매출까지 분류된다. 상품의 원본 카테고리 번호도 `cafe24_product_catnos` 에 같이 보관한다.
+  - 매일 수집이 **처음 보는 상품만** 조회해 추가한다. 이미 저장된 상품은 다시 보지 않는다.
+- **전부 '기타'로 나올 때 고치는 순서** (새 업체에서 거의 반드시 겪는다 — 기본 그룹 이름이 그 몰의 카테고리 이름과 안 맞기 때문):
+  1. 카테고리 트리 확인: Actions `probe.yml` 에 `script=category_probe` (로컬: `python scripts/category_probe.py`)
+  2. `config/metrics.yaml` 의 `category_groups` 를 그 몰의 카테고리 이름으로 고쳐 커밋·푸시
+  3. **다시 분류**: `probe.yml` 에 `script=category_fill`, `args=--reclassify`. 이미 '기타'로 저장된 상품은 `--reclassify` 가 있어야 바뀐다(옵션 없이 돌리면 새 상품만 채운다).
+  4. `pages-deploy.yml` 로 배포 → Ctrl+F5
+  - 처음 채울 때는 판매 상품 1만 개에 약 1시간 걸린다(상품마다 조회). 그 뒤 `--reclassify` 는 보관된 번호로 다시 계산해 금방 끝난다. 원본 번호가 없는 예전 매핑은 그때 한 번 다시 조회한다.
+  - 수집 로그에 `cafe24_category · fail` 이 있으면 상품·카테고리 조회 권한(scope `mall.read_product`, `mall.read_category`)을 확인한다. 이 경우 매출은 저장되지만 새 상품이 '기타'로 남는다.
 
 ## 8. 상품별 조회 → 담기 → 주문
 

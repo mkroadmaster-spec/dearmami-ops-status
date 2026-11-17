@@ -74,13 +74,23 @@ gh api -X POST repos/<R>/actions/workflows/probe.yml/dispatches -f ref=main \
   -f 'inputs[script]=analytics_probe' -f 'inputs[args]=size'
 ```
 
+인자가 없는 진단은 `inputs[args]` 를 빼고, 있는 것은 그대로 넣는다. 예:
+
+```bash
+gh api -X POST repos/<R>/actions/workflows/probe.yml/dispatches -f ref=main -f 'inputs[script]=category_probe'
+gh api -X POST repos/<R>/actions/workflows/probe.yml/dispatches -f ref=main \
+  -f 'inputs[script]=category_fill' -f 'inputs[args]=--reclassify'
+```
+
+로컬에 키(`config/secrets.env`)와 `DATABASE_URL` 이 있으면 `python scripts/<script>.py <args>` 로 같은 것을 돌릴 수 있다.
+
 | script | args | 알려주는 것 |
 |---|---|---|
 | `analytics_probe` | `size` | DB 크기, 소스별 행 수·날짜 범위, 테이블 크기 |
 | `analytics_probe` | `YYYY-MM-DD` | 카페24 통계 API 경로별 응답 키·첫 행, DB 지표 합계 |
 | `collect_probe` | `수집기,… 날짜 날짜…` | 수집기를 DB 저장 없이 돌려 소요 시간·건수·오류만 |
 | `category_probe` | `[카테고리번호…]` | 카테고리 트리, 상품의 카테고리 소속 모양 |
-| `category_fill` | — | 과거 판매 상품의 카테고리 매핑 채우기 |
+| `category_fill` | (`--reclassify`) | 판매 상품의 카테고리 매핑 채우기. `--reclassify` = 그룹 정의를 고친 뒤 전체 재분류 |
 | `google_probe` / `kakao_probe` | (`fields`) | 광고 API 구조 |
 
 **저장소가 Public 이면 Actions 로그도 공개된다.** 진단 스크립트는 건수·키 이름·날짜만 찍고 매출·광고비 금액은 찍지 않는다. 새 진단을 만들 때도 이 규칙을 지킨다.
@@ -120,7 +130,8 @@ DATABASE_URL=$DB CAFE24_OPS_MODE=demo DASHBOARD_PASSWORD= .venv/bin/python scrip
 | 화면이 예전 그대로 | 배포가 돌았나, 강력 새로고침 | 수집만 하고 배포 안 함 |
 | 특정 채널만 비어 있음 | 채널 연결 탭 카드·로그 | 키 없음(skip), 권한, 토큰 만료 |
 | 전부 0 또는 `—` | `analytics_probe` 로 응답 모양 | 필드 이름이 달라 0 으로 저장, scope 누락 |
-| 카테고리가 전부 '기타' | `app_kv` 의 `cafe24_product_category` | 매핑을 안 채움 → `category_fill` |
+| 카테고리가 전부 '기타' | `tab-ops.md` 7번의 순서 | 그룹 이름이 그 몰의 카테고리와 안 맞음 → `category_groups` 수정 후 `category_fill --reclassify` |
+| 소재 피로도가 늘 '정상' | 선택 기간 | 7일 이하면 비교 구간이 같아 하락률 0 → 14일·30일로 |
 | 버튼을 눌러도 정렬·필터가 안 바뀜 | 정적 페이지인가 | 스냅샷엔 한 벌뿐 → 화면에서 정렬하도록 |
 | "snapshot 에 없는 경로" | `export_static.py`, `snapGet()` | 새 API 를 스냅샷에 안 넣음 |
 | 백필이 몇 시간째 안 끝남 | `collect_probe` 로 하루치 시간 측정 | 날짜마다 목록 재조회, 호출 제한(429) |

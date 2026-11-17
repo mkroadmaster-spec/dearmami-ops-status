@@ -321,7 +321,8 @@ CREATIVE_SOURCES = {"meta": "creative", "google": "google_creative", "kakao": "k
 
 
 def creatives_overview(store, f: str, t: str, channel: str = "meta") -> list[dict[str, Any]]:
-    """소재별 성과 + 피로도(최근 7일 CTR vs 기간 초반 7일 CTR, 평균 빈도). channel: meta | google"""
+    """소재별 성과 + 피로도(최근 7일 CTR vs 기간 초반 7일 CTR, 평균 빈도). channel: meta | google | kakao
+    주의: 선택 기간이 7일 이하면 초반 7일 = 최근 7일이라 CTR 하락률이 0 → 빈도 없는 채널은 항상 '정상'."""
     src = CREATIVE_SOURCES.get(channel, "creative")
     g = _group(store, f, t, src, ("ad_id",))
     tf = _date.fromisoformat(t)
@@ -347,7 +348,7 @@ def creatives_overview(store, f: str, t: str, channel: str = "meta") -> list[dic
         avg_freq = freq / n_days
         c_r, c_e = ctr(recent.get((ad_id,))), ctr(early.get((ad_id,)))
         drop = ((c_e - c_r) / c_e * 100) if (c_r is not None and c_e) else None
-        if not freq_days:  # 빈도 지표가 없는 채널(구글)은 CTR 하락만으로 판정
+        if not freq_days:  # 빈도 지표가 없는 채널(구글·카카오)은 CTR 하락만으로 판정
             avg_freq = None
         level = "높음" if (drop is not None and drop >= 25) or (avg_freq or 0) >= 3.5 else ("주의" if (drop is not None and drop >= 10) or (avg_freq or 0) >= 2.5 else "정상")
         rows.append({"ad_id": ad_id, "ad_name": d.get("ad_name", ""), "campaign": d.get("campaign", ""), "adset": d.get("adset", ""),
