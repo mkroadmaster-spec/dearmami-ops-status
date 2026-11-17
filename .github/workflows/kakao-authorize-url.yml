@@ -31,6 +31,6 @@ jobs:
               q["resource_ids"] = f"moment:{acc}"   # ID 가 틀리거나 권한 없는 계정이면 KOE234
           url = "https://kauth.kakao.com/oauth/business/authorize?" + urllib.parse.urlencode(q, safe="%*:")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-              f.write("## 카카오 비즈니스 인증 링크\n\n링크 클릭 → 카카오 로그인(광고계정 멤버 계정) → 동의 화면에서 **디어마미 광고계정 선택** → 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `kakao token` 에 붙여넣기 (10분 유효)\n\n")
+              f.write("## 카카오 비즈니스 인증 링크\n\n링크 클릭 → 카카오 로그인(광고계정 멤버 계정) → 동의 화면에서 **연결할 광고계정 선택** → 동의 → 대시보드로 돌아오면 아래 띠의 **코드 복사** → `kakao token` 에 붙여넣기 (10분 유효)\n\n")
               f.write(f"### 👉 [여기를 클릭해 승인하기]({url})\n")
           PY

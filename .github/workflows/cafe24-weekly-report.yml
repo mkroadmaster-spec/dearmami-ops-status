@@ -57,7 +57,7 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+      DASHBOARD_URL: ${{ vars.DASHBOARD_URL || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}   # 따로 정하지 않으면 이 저장소의 Pages 주소
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

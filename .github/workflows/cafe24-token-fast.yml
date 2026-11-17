@@ -53,7 +53,7 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
               f.write("## ✅ 카페24 토큰 발급 성공\n\n부여된 권한: `" + scopes + "`\n\n")
               f.write(("⚠ 누락 권한: `" + ",".join(miss) + "` — 개발자센터 앱 권한 7개 전부 체크 후 다시 승인\n\n") if miss else "권한 7개 모두 정상 ✓\n\n")
-              f.write("다음: Actions → **ops daily collect (all channels)** → Run workflow (days `30`, reset `true`)\n")
+              f.write("다음: Claude 에게 「카페24 됐어」라고 보내세요. 과거 데이터 수집과 대시보드 배포는 Claude 가 실행합니다.\n\n(직접 하려면 Actions → **ops daily collect (all channels)** → Run workflow. `reset` 을 `true` 로 하면 **쌓인 데이터가 모두 지워지므로** 처음 설치할 때만 씁니다.)\n")
           PY
       - name: DB 저장
         run: |
@@ -69,5 +69,5 @@ jobs:
               c.execute("CREATE TABLE IF NOT EXISTS app_kv (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)")
               for k, v in rows.items():
                   c.execute("INSERT INTO app_kv (key,value,updated_at) VALUES (%s,%s,now()::text) ON CONFLICT (key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", (k, v))
-          print("✓ app_kv 저장 완료 → 'ops daily collect' 를 days=14 로 실행하세요")
+          print("✓ app_kv 저장 완료 → Claude 에게 '카페24 됐어' 라고 보내세요")
           PY

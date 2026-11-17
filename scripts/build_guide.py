@@ -39,7 +39,7 @@ def to_md(repo: str | None) -> str:
     f = lambda t: fill(t, repo)  # noqa: E731
     o = [f"# {G.INTRO['title']}", "", G.INTRO["lead"], "",
          "> `<내 저장소>` 는 GitHub 저장소 이름(예: `my-company/shop-dashboard`), `<대시보드 주소>` 는 `https://<소유자>.github.io/<저장소>/` 입니다.",
-         "> 같은 내용의 HTML 파일(복사 버튼 포함)과 Word 파일은 `python scripts/build_guide.py` 로 만듭니다.", "",
+         "> 같은 내용의 HTML 파일(복사 버튼 · 저장소 이름 자동 채움)과 Word 파일도 있습니다. Claude 에게 「채널 연결 가이드 파일을 줘」라고 보내면 됩니다.", "",
          "## 지켜야 할 것", ""] + [f"- {r}" for r in G.INTRO["rules"]] + [""]
     for b in G.BASICS:
         o += [f"## {b['title']}", ""]

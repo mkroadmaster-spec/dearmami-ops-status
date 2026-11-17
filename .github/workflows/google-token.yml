@@ -44,7 +44,7 @@ jobs:
               summ.write(f"## ❌ 구글 토큰 교환 실패\n\n```\n{e}\n```\n\n- `invalid_grant` → 코드가 만료됐거나 이미 사용됨: `google authorize url` 부터 다시\n- `redirect_uri_mismatch` → OAuth 클라이언트의 승인된 리디렉션 URI 가 글자까지 같은지 확인\n- `invalid_client` → Secret `GOOGLE_ADS_CLIENT_ID` / `GOOGLE_ADS_CLIENT_SECRET` 확인\n")
               raise SystemExit(1)
           if not tok.get("refresh_token"):
-              summ.write("## ⚠ 리프레시 토큰이 오지 않았습니다\n\n이미 한 번 동의한 계정입니다. https://myaccount.google.com/permissions 에서 '디어마미 대시보드' 접근을 삭제한 뒤 `google authorize url` 부터 다시 하세요.\n")
+              summ.write("## ⚠ 리프레시 토큰이 오지 않았습니다\n\n이미 한 번 동의한 계정입니다. https://myaccount.google.com/permissions 에서 이 대시보드용으로 만든 앱(OAuth 동의 화면의 앱 이름)의 접근을 삭제한 뒤 `google authorize url` 부터 다시 하세요.\n")
               raise SystemExit(1)
           store = Store(); ads_google.save_tokens(store, tok)
           summ.write("## ✅ 구글 토큰 발급 + DB 저장 완료\n\n")
@@ -52,7 +52,7 @@ jobs:
               from datetime import date, timedelta
               d = (date.today() - timedelta(days=1)).isoformat()
               rep = ads_google.GoogleAdsClient(store).daily(d)
-              summ.write(f"어제({d}) 리포트 확인: 광고비 {rep['ad_cost']:,.0f} · 노출 {rep['impressions']:,.0f} · 클릭 {rep['clicks']:,.0f}\n\n다음: `ops daily collect` 실행 → `ads=ok`\n")
+              summ.write(f"어제({d}) 리포트 조회 성공 (광고비 {'있음' if rep['ad_cost'] else '0'} · 노출 {'있음' if rep['impressions'] else '0'}) — 공개 화면이라 수치는 표시하지 않습니다.\n\n다음: Claude 에게 「구글 됐어」라고 보내세요.\n")
               print(f"::notice::리포트 OK cost={rep['ad_cost']:.0f} imp={rep['impressions']:.0f}")
           except Exception as e:
               print("::warning::리포트 조회 실패 " + str(e).replace("\n"," ")[:300])
