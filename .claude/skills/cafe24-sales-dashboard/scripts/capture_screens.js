@@ -56,11 +56,12 @@ const [site, out] = process.argv.slice(2);
   // ── 광고 히스토리 (채널 서브탭)
   await tab('history');
   const sub = async (h) => { await p.click(`[data-h=${h}]`); await p.waitForTimeout(1500); };
-  await sub('meta'); await shot('hist-01-meta-creatives', ['#tab-history .sub-nav', '#hist-meta'], 1500);
-  await sub('google'); await shot('hist-02-google-creatives', ['#tab-history .sub-nav', '#hist-meta'], 1500);
-  await sub('kakao'); await shot('hist-03-kakao-creatives', ['#tab-history .sub-nav', '#hist-meta'], 1500);
-  await sub('naver_powerlink'); await shot('hist-04-naver-keywords', ['#tab-history .sub-nav', '#hist-naver_powerlink'], 1100);
-  await sub('naver_place'); await shot('hist-05-naver-place', ['#tab-history .sub-nav', '#hist-naver_place']);
+  await sub('meta'); await shot('hist-01-meta-creatives', ['#tab-history > .sub-nav', '#hist-meta'], 1500);
+  await shot('hist-00-campaign-table', ['#hist-meta .campBox']);
+  await sub('google'); await shot('hist-02-google-creatives', ['#tab-history > .sub-nav', '#hist-meta'], 1500);
+  await sub('kakao'); await shot('hist-03-kakao-creatives', ['#tab-history > .sub-nav', '#hist-meta'], 1500);
+  await sub('naver_powerlink'); await shot('hist-04-naver-keywords', ['#tab-history > .sub-nav', '#hist-naver_powerlink'], 1300);
+  await sub('naver_place'); await shot('hist-05-naver-place', ['#tab-history > .sub-nav', '#hist-naver_place']);
   // ── GA4
   await tab('ga4');
   await shot('ga4-01-kpi-cards', ['#ga4Cards']);
@@ -75,9 +76,10 @@ const [site, out] = process.argv.slice(2);
   await shot('weekly-01-header_summary', ['#repW .panel:nth-of-type(1)', 'h3:01', 'h3:02']);
   await shot('weekly-02-channels', ['h3:03']);
   await shot('weekly-03-funnels', ['h3:04', 'h3:05']);
-  await shot('weekly-04-best_customers', ['h3:06', 'h3:07']);
-  await shot('weekly-05-keywords', ['h3:08', 'h3:09']);
-  await shot('weekly-06-insights', ['h3:10']);
+  await shot('weekly-04-category_best', ['h3:06', 'h3:07']);
+  await shot('weekly-05-customers_keywords', ['h3:08', 'h3:09']);
+  await shot('weekly-06-naver-keywords', ['h3:10']);
+  await shot('weekly-07-insights', ['h3:11']);
   await tab('monthly');
   await shot('monthly-01-header_summary', ['#repM .panel:nth-of-type(1)', 'h3:01', 'h3:02']);
   // ── 채널 연결

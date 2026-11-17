@@ -12,6 +12,22 @@
 | 네이버 검색(키워드) | `screens/hist-04-naver-keywords.png` | `naver_keyword` | `collectors/naver_keyword.py` |
 | 네이버 플레이스 | `screens/hist-05-naver-place.png` | `naver_place` | `collectors/naver_keyword.py` |
 
+## 0. 캠페인별 성과 (모든 채널 버튼 공통)
+
+캡처: `screens/hist-00-campaign-table.png`
+
+- **위치**: 채널 버튼마다 KPI 카드 바로 아래(플레이스는 맨 위).
+- **보여주는 것**: 그 채널의 캠페인마다 한 줄 — 광고비(+비중 막대) · 노출 · 클릭 · CTR · CPC · 전환 · 전환율 · 전환당 비용 · 광고매출 · ROAS. 값 아래 비교기간 값과 증감. 비교기간에 없던 캠페인은 `신규`. 맨 아래 합계.
+- **정렬 버튼**: 광고비 · 광고매출 · ROAS · 전환 · 클릭 · CTR · 전환당 비용 (다시 누르면 오름/내림, 화면에서 정렬)
+- **출처**: `/api/ads/campaigns?channel=meta|google|kakao|naver_powerlink|naver_place` → `breakdown.campaign_report()`
+  - 원천은 facts `ad_campaign`(dims: `channel`, `campaign_id`, `campaign`) — 수집기 `collectors/ad_campaign.py`
+    - 네이버: 채널 합계와 같은 `/stats`(캠페인 id) 호출을 재사용(`campaign_stats()`), 캠페인 유형으로 파워링크/플레이스 구분
+    - 구글: GAQL `FROM campaign` 30일 묶음(`campaign_rows()`) — 모든 캠페인 유형 포함
+    - 카카오: 소재 수집이 이미 부르는 캠페인 리포트를 날짜별로 보관해 재사용(`kakao_creative.campaign_rows()`)
+  - **왜 따로 받나**: 소재·키워드는 하루 상위 N개만 저장하므로 캠페인으로 묶으면 합계가 모자란다.
+  - `ad_campaign` 이 없는 채널·기간(예: Meta, 백필 전)은 소재·키워드 행을 캠페인으로 묶어 **근사**하고 `approx: true` → 화면에 "소재·키워드 합산 기준(일부 누락 가능)" 태그가 뜬다.
+- **주의**: 채널 탭마다 같은 표 틀을 쓰므로 화면에는 표가 하나만 있어야 한다(`#tblCamp`). 다른 채널 칸은 그릴 때 비운다.
+
 처음 열 때 Meta 소재가 비어 있으면 소재가 있는 채널(구글 → 카카오)을 자동으로 먼저 보여준다(`HIST_AUTO`).
 
 ---

@@ -85,14 +85,16 @@ data/manual/<채널>/    CSV 업로드 채널
 | `google_creative` | `google_creative` | 위 5개 | + ad_type |
 | `kakao_creative` | `kakao_creative` | 위 5개 | + ad_type |
 | `naver_keyword` | `naver_keyword`, `naver_place` | 위 5개 | keyword_id, keyword, adgroup, campaign / adgroup_id |
+| `ad_campaign` | `ad_campaign` | 광고 5지표 (0 은 생략) | channel, campaign_id, campaign |
 | `competitor` | `competitor` | trend_ratio | brand |
 
 **파이프라인 규칙** (`pipeline.run_day`):
 - 수집기의 `is_configured()` 가 거짓이면 `skip`.
 - 성공하면 그 날짜·소스의 기존 facts 를 지우고 새로 넣는다(낡은 행 제거).
+- **예외 — `ads`·`ad_campaign` 은 채널 단위로만 지운다**(`store.delete_dim_values`). 이번에 받은 채널만 교체하고 못 받은 채널은 그대로 둔다. 한 소스에 여러 채널이 섞여 있어서, 날짜 단위로 지우면 키가 빠진 실행이 남의 채널을 지운다(실제로 6일치가 사라졌다).
 - `PartialFailure`(일부 채널만 실패)면 지우지 않고 받은 것만 덧쓴다.
 - 전부 실패하면 예외 → `fail` 기록, 기존 데이터는 그대로.
-- `ADS_ONLY=naver_sa` 처럼 광고 채널 일부만 수집할 때는 `ads` 를 지우지 않는다(다른 채널 보존).
+- `ADS_ONLY=naver_sa` 는 광고 채널 중 일부만 수집한다. 채널 단위 교체라 다른 채널은 보존된다.
 - 마지막에 `aggregate_day()` 로 그 날의 `kpi_daily` 를 다시 만든다.
 
 ## 5. 지표 계산식 (`etl/aggregate.py`)
@@ -133,6 +135,7 @@ data/manual/<채널>/    CSV 업로드 채널
 | `/api/shop/analytics` | 접속통계 블록 | shop_analytics |
 | `/api/ads/channels` | 광고 탭 전체 | ads_by_channel, channel_detail, ads_trend |
 | `/api/ads/keywords?channel=&sort=` | 네이버 키워드·플레이스 | keyword_report, place_report |
+| `/api/ads/campaigns?channel=` | 광고 히스토리 캠페인별 성과 | campaign_report |
 | `/api/creatives/overview?channel=` `/api/creatives/trend?channel=` | 소재 카드·추이 | creatives_overview, creative_trend |
 | `/api/ga4/site` | GA4 탭 | ga4_site (+ funnel, channels, pages) |
 | `/api/competitors/directory` `/api/competitors/trend` | 경쟁사 | competitor_directory, competitor_trend |

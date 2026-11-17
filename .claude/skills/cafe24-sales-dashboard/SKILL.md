@@ -52,10 +52,10 @@ bash <이 스킬 폴더>/scripts/install_source.sh ~/cafe24-ops-status
 |---|---|---|---|
 | 카페24 어드민 | 매출·주문·객단가·방문·전환, 카테고리·베스트 상품, 접속통계 | `references/tab-ops.md` | `screens/ops-00-full.png` |
 | 광고 | 채널별 광고비·ROAS·전환, 채널별 30일 흐름 | `references/tab-ads.md` | `screens/ads-00-full.png` |
-| 광고 히스토리 | Meta·구글·카카오 소재 카드(이미지), 네이버 키워드·플레이스 | `references/tab-history.md` | `screens/hist-0*.png` |
+| 광고 히스토리 | 채널별 캠페인 성과 표, Meta·구글·카카오 소재 카드(이미지), 네이버 키워드·플레이스 | `references/tab-history.md` | `screens/hist-0*.png` |
 | 유입·구매 경로(GA4) | 사이트 지표, 구매 퍼널 단계별 이탈, 매체별 유입 | `references/tab-ga4.md` | `screens/ga4-0*.png` |
 | 경쟁사 모니터링 | 경쟁사 딥링크, 네이버 검색 트렌드 | `references/tab-comp.md` | `screens/comp-01-directory_trend.png` |
-| 주간 리포트 · 월간 리포트 | 10개 섹션 자동 리포트 + Word 내보내기 | `references/tab-reports.md` | `screens/weekly-00-full.png` |
+| 주간 리포트 · 월간 리포트 | 이전 기간 비교 리포트 + 섹션별 코멘트 + Word·Excel·PDF 다운로드 | `references/tab-reports.md` | `screens/weekly-00-full.png` |
 | 채널 연결 | 채널별 연결 상태, 필요한 키, 수집 로그 | `references/tab-channels.md` | `screens/channels-01-cards.png` |
 
 탭 문서는 영역마다 같은 형식이다: **캡처 → 보여주는 것 → 데이터 출처 → 계산 → 코드 위치 → 주의**.

@@ -45,15 +45,17 @@ API: `/api/ads/channels`, `/api/summary`
 - **보여주는 것** — 채널마다 한 칸:
   - 제목 + 예산 비중 태그
   - 미니 카드 6개: 총 광고비 · 광고 매출 · ROAS · 노출량 · 클릭수 · 전환율 (비교기간 대비)
-  - **최근 30일 흐름 그래프 5개**(위에서부터): 광고비(막대) → ROAS → 광고 매출 → 클릭수 → 전환율(전환 ÷ 클릭)
-- **출처**: `/api/ads/channels` 의 `detail` → `breakdown.channel_detail()`. `trend` 안에 `dates`, `ad_cost`, `roas`, `ad_revenue`, `ad_clicks`, `cvr` 배열.
+  - **최근 30일 흐름 — 작은 그래프 6개**(3열): 광고비 · 광고 매출 · ROAS · 클릭수 · 전환수 · 전환율
+    - 그래프마다 머리에 **30일 합계**(ROAS·전환율은 합계로 다시 계산한 기간 전체 값)와 **▲▼ = 최근 15일 vs 그 앞 15일**
+    - 점선 = 일 평균. 한 그래프에 마우스를 올리면 같은 채널의 나머지 다섯 그래프도 **같은 날짜**를 가리킨다.
+    - **회색 띠 = 수집 누락일.** 그 날 데이터 행이 없다는 뜻이다(0원이 아니다). 안내 태그에 날짜가 나온다.
+- **왜 이렇게 생겼나**: 광고비·ROAS·클릭수는 단위가 달라 한 그래프에 겹치면 눈금이 섞인다. 그래서 지표마다 축이 하나인 작은 그래프로 나누고, 날짜만 같이 움직이게 했다. 색은 채널 색 하나로 통일한다(색 = 채널).
+- **출처**: `/api/ads/channels` 의 `detail` → `breakdown.channel_detail()`. `trend` 안에 `dates`(빈 날 포함 연속 30일), `ad_cost`, `ad_revenue`, `roas`, `ad_clicks`, `ad_conversions`, `cvr`, `missing_dates`.
+  - 그 날짜에 채널 행이 없으면 값은 `null` 이다. **0 으로 채우지 않는다** — 누락을 '0원'으로 그리면 급락처럼 보인다.
 - **주의**: 흐름 그래프는 기간 선택과 무관하게 **선택기간 끝 날짜 기준 최근 30일**이다. 채널 순서는 광고비가 큰 순.
-- **그래프를 더 넣고 싶을 때** (예: CPC 흐름) — 네 곳을 고친다:
-  1. `breakdown.channel_detail()` 의 `trend` 에 배열 추가 (예: `"cpc": [(c / k) if k else None for c, k in zip(costs, clks)]`)
-  2. `loadAds()` 의 채널 칸 HTML 에 이름표 + 캔버스 한 줄: `<div class="note">CPC</div><div class="chart xs"><canvas id="chP${i}"></canvas></div>`
-  3. 같은 HTML 의 범례(`<div class="legend">`)에 `<span><i style="background:${S[5]}"></i>CPC</span>`
-  4. 그리는 줄: ``small(`chP${i}`, 'CPC', d.trend.cpc || [], S[5], 축 표기 함수, 툴팁 함수)``
-  - `/api/ads/channels` 는 이미 스냅샷에 들어 있으므로 `export_static.py`·`snapGet()` 은 건드리지 않는다. `trend` 키를 검사하는 테스트는 없으니 데모 화면으로 직접 확인한다.
+- **그래프를 더 넣고 싶을 때** (예: CPC 흐름): ① `channel_detail()` 의 `trend` 에 배열 추가 ② `loadAds()` 의 `TREND` 배열에 한 줄 추가 — `[키, 이름, 'bar'|'line', 대표값 함수(t, a, b), 값 표기, 축 표기]`. 캔버스·머리글·동기화는 자동으로 만들어진다.
+  - `/api/ads/channels` 는 이미 스냅샷에 들어 있으므로 `export_static.py`·`snapGet()` 은 건드리지 않는다.
+- 회색 띠가 보이면 → `operations.md` 의 "광고 데이터가 빠진 날 찾기".
 
 ## 4. 미연동 광고 채널 안내
 
