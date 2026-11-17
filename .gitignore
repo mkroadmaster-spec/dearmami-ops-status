@@ -10,3 +10,4 @@ dist/
 !data/manual/
 !data/manual/**
 .claude/skills/cafe24-sales-dashboard/assets/*.zip
+*.skill
