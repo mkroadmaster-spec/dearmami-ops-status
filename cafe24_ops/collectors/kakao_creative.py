@@ -36,16 +36,19 @@ def _ad_groups(store, k: "ads_kakao.KakaoMomentClient", today: str) -> dict[str,
     if _groups is not None:
         return _groups
     cached = json.loads(store.kv_get(KV_SCHED) or "{}")
+    recheck_after = (_date.fromisoformat(today) - timedelta(days=6)).isoformat()
     out: dict[str, dict] = {}
     for c in _camps or []:
         for g in k.ad_groups(c["id"]):
             gid = str(g["id"])
             old = cached.get(gid)
-            if old and old.get("end") and old["end"] < today:
+            # 끝난 광고그룹은 다시 보지 않는다. 진행 중(종료일 없음)도 일주일에 한 번만 다시 확인 —
+            # 매일 400여 개 상세를 다시 부르면 그것만 7~8분이 걸린다.
+            if old and ((old.get("end") and old["end"] < today) or (old.get("checked", "") >= recheck_after)):
                 out[gid] = old
                 continue
             sch = (k.ad_group_detail(gid).get("schedule") or {})
-            out[gid] = {"campaign": c["id"], "name": g.get("name", ""), "begin": sch.get("beginDate") or "", "end": sch.get("endDate") or ""}
+            out[gid] = {"campaign": c["id"], "name": g.get("name", ""), "begin": sch.get("beginDate") or "", "end": sch.get("endDate") or "", "checked": today}
     store.kv_set(KV_SCHED, json.dumps(out, ensure_ascii=False))
     _groups = out
     return out
