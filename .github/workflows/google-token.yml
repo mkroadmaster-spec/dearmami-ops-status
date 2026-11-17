@@ -8,9 +8,9 @@ on:
         description: "승인 후 받은 code (주소 전체를 붙여넣어도 됩니다)"
         required: true
       redirect_uri:
-        description: "authorize 때와 동일"
-        required: true
-        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+        description: "authorize 때와 동일 — 비우면 이 저장소의 대시보드 주소(https://<owner>.github.io/<repo>/)"
+        required: false
+        default: ""
 
 jobs:
   exchange:
@@ -39,7 +39,7 @@ jobs:
           code = urllib.parse.unquote(m.group(1)) if m else raw
           summ = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
           try:
-              tok = ads_google.exchange_code(code, "${{ github.event.inputs.redirect_uri }}")
+              tok = ads_google.exchange_code(code, "${{ github.event.inputs.redirect_uri || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}")
           except Exception as e:
               summ.write(f"## ❌ 구글 토큰 교환 실패\n\n```\n{e}\n```\n\n- `invalid_grant` → 코드가 만료됐거나 이미 사용됨: `google authorize url` 부터 다시\n- `redirect_uri_mismatch` → OAuth 클라이언트의 승인된 리디렉션 URI 가 글자까지 같은지 확인\n- `invalid_client` → Secret `GOOGLE_ADS_CLIENT_ID` / `GOOGLE_ADS_CLIENT_SECRET` 확인\n")
               raise SystemExit(1)

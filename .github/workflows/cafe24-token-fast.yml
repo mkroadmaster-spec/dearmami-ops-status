@@ -9,9 +9,9 @@ on:
         description: "승인 후 주소창의 code= 값 (주소 전체를 통째로 붙여넣어도 됩니다)"
         required: true
       redirect_uri:
-        description: "authorize 때와 동일"
-        required: true
-        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+        description: "authorize 때와 동일 — 비우면 이 저장소의 대시보드 주소(https://<owner>.github.io/<repo>/)"
+        required: false
+        default: ""
 
 jobs:
   exchange:
@@ -32,7 +32,7 @@ jobs:
           code = urllib.parse.unquote(m.group(1)) if m else raw.split("&")[0].replace("code=", "").strip()
           print("code 길이:", len(code))
           data = urllib.parse.urlencode({"grant_type": "authorization_code", "code": code,
-                                         "redirect_uri": "${{ github.event.inputs.redirect_uri }}"}).encode()
+                                         "redirect_uri": "${{ github.event.inputs.redirect_uri || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}"}).encode()
           req = urllib.request.Request(f"https://{mall}.cafe24api.com/api/v2/oauth/token", data=data, headers={
               "Authorization": "Basic " + base64.b64encode(f"{cid}:{sec}".encode()).decode(),
               "Content-Type": "application/x-www-form-urlencoded"})

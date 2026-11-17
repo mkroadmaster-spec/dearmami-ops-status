@@ -8,9 +8,9 @@ on:
         description: "승인 후 받은 code (주소 전체를 붙여넣어도 됩니다)"
         required: true
       redirect_uri:
-        description: "authorize 때와 동일"
-        required: true
-        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+        description: "authorize 때와 동일 — 비우면 이 저장소의 대시보드 주소(https://<owner>.github.io/<repo>/)"
+        required: false
+        default: ""
 
 jobs:
   exchange:
@@ -38,7 +38,7 @@ jobs:
           code = urllib.parse.unquote(m.group(1)) if m else raw
           summ = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
           try:
-              tok = ads_kakao.exchange_code(code, "${{ github.event.inputs.redirect_uri }}")
+              tok = ads_kakao.exchange_code(code, "${{ github.event.inputs.redirect_uri || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}")
           except Exception as e:
               summ.write(f"## ❌ 카카오 토큰 교환 실패\n\n```\n{e}\n```\n\n- `invalid_grant` → 코드가 10분 지났거나 이미 사용됨: `kakao authorize url` 부터 다시\n- `KOE010`/`redirect_uri` → REST API 키 수정 화면의 **비즈니스 인증 리다이렉트 URI** 가 글자까지 같은지 확인\n- `KOE232`/권한 → [추가 기능 신청] 카카오모먼트 승인 여부, [비즈니스 인증 > 동의항목] moment 항목 사용 설정 확인\n- `client_secret` 관련 → Secret `KAKAO_BUSINESS_SECRET` (비즈니스 인증 줄 코드) 확인\n")
               print("::error::" + str(e).replace("\n"," ")[:400]); raise SystemExit(1)

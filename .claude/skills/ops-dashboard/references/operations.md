@@ -7,8 +7,8 @@
 
 | 파일 | 하는 일 | 실행 |
 |---|---|---|
-| `daily-collect.yml` | 전 채널 수집 | 매일 07:00 KST(최근 3일) + 수동 |
-| `pages-deploy.yml` | 정적 대시보드 생성·배포 | 매일 07:40 KST + `dashboard/**` 푸시 + 수동 |
+| `daily-collect.yml` | 전 채널 수집 | 매일 06:17 KST 예약(최근 3일, 실제 시작은 늦어질 수 있음) + 수동 |
+| `pages-deploy.yml` | 정적 대시보드 생성·배포 | **수집·주간 리포트 워크플로가 성공하면 자동** + `dashboard/**` 푸시 + 수동 + 14:23 KST 보험 |
 | `cafe24-weekly-report.yml` | 지난주 재수집 + Word 리포트 | 매주 월 08:25 KST |
 | `cafe24-authorize-url.yml` / `cafe24-token-fast.yml` / `cafe24-token-reset.yml` | 카페24 토큰 발급·초기화 | 수동 |
 | `kakao-authorize-url.yml` / `kakao-token.yml` | 카카오 토큰 | 수동 |
@@ -54,7 +54,9 @@ gh run view <run_id> -R <R> --log | grep -E "run_all\]|\[progress\]"
 - **로그는 실행이 끝나야 보인다.** 긴 백필 중에는 진행률을 볼 수 없다. 백필은 30일마다 `[progress] n/N일 · 경과 · 예상 잔여` 를 찍으므로 끝난 뒤 확인하거나, DB 를 진단으로 직접 본다(아래).
 - **한 작업은 최대 6시간.** 넘을 것 같으면 소스를 나눠 돌린다.
 - `gh api … dispatches` 가 HTTP 500 을 주면 몇 초 뒤 다시 시도한다.
-- 수집이 끝나도 화면은 그대로다. **배포를 해야 화면이 바뀐다.**
+- 수집 워크플로가 성공으로 끝나면 배포가 자동으로 이어진다(`workflow_run`). 진단(`probe`)이나 실패한 수집 뒤에는 배포되지 않으니 필요하면 직접 배포한다.
+- GitHub 의 예약 실행은 정각에 몰려 몇 시간씩 늦는다. 그래서 cron 은 정각을 피했고(`17 21 * * *`), "수집 → 배포" 순서는 시각이 아니라 `workflow_run` 으로 보장한다.
+- 매일 수집에는 예약 워크플로를 다시 켜 두는 단계가 있다(60일 무커밋 시 GitHub 가 예약 실행을 끄는 것 대비).
 
 ### 백필에 걸리는 시간 (680일 기준, 실제 측정)
 
@@ -93,6 +95,7 @@ gh api -X POST repos/<R>/actions/workflows/probe.yml/dispatches -f ref=main \
 | `category_probe` | `[카테고리번호…]` | 카테고리 트리, 상품의 카테고리 소속 모양 |
 | `category_fill` | (`--reclassify`) | 판매 상품의 카테고리 매핑 채우기. `--reclassify` = 그룹 정의를 고친 뒤 전체 재분류 |
 | `ads_gap_probe` | `[시작일]` | 광고 채널별 누락·0원·급감 날짜, 최근 수집 기록 |
+| `prune` | (`--before 날짜 [--sources a,b] [--apply]`) | DB 용량 정리 미리보기 / 실제 삭제 |
 | `google_probe` / `kakao_probe` | (`fields`) | 광고 API 구조 |
 
 **저장소가 Public 이면 Actions 로그도 공개된다.** 진단 스크립트는 건수·키 이름·날짜만 찍고 매출·광고비 금액은 찍지 않는다. 새 진단을 만들 때도 이 규칙을 지킨다.
@@ -122,6 +125,8 @@ gh api -X POST repos/<R>/actions/workflows/probe.yml/dispatches -f ref=main \
 
 - 행 하나가 약 0.4KB. 디어마미는 2025-01-01부터 약 85만 행, 429MB 였다.
 - 그래서 하루 저장 상한을 둔다: 접속통계(상품 100·판매 50·검색어 100·도메인 50·페이지 30), 네이버 키워드 60, 카카오 소재 40. 0 인 지표는 저장하지 않는다.
+- 브리핑의 "이상치" 상자에 **DB 용량 85% 경고**가 뜬다(`store.db_size_mb()`, 한도는 환경변수 `DB_LIMIT_MB`, 기본 512).
+- 정리 도구 `scripts/prune.py`: 기본은 미리보기(지우지 않음). 오래된 상세 행(상품·검색어·키워드·소재·캠페인별)만 대상이고 일별 합계와 방문 합계는 남긴다. `--apply` 는 사용자가 기준일에 동의한 뒤에만 붙인다.
 - 용량이 차면: ① 가장 큰 소스(`cafe24_analytics`)의 상한을 줄이고 재수집 ② 오래된 상세 행(상품·키워드 단위)을 지우고 `kpi_daily` 는 유지 ③ 유료 전환. 지우기 전에 반드시 사용자에게 확인받는다.
 - 새 소스를 붙일 때는 **먼저 하루치 행 수를 재고**(`collect_probe`) 기간을 곱해 본다. 네이버 키워드는 상한 없이 하루 2,600행이라 한도를 넘길 뻔했다.
 

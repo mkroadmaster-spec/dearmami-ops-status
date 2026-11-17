@@ -9,5 +9,5 @@ config/secrets.env
 dist/
 !data/manual/
 !data/manual/**
-.claude/skills/cafe24-sales-dashboard/assets/*.zip
+.claude/skills/ops-dashboard/assets/*.zip
 *.skill

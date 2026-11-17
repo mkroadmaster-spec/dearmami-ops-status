@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       redirect_uri:
-        description: "앱 > 플랫폼 키 > REST API 키 수정 > '비즈니스 인증 리다이렉트 URI' 와 글자까지 동일"
-        required: true
-        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+        description: "앱 > 플랫폼 키 > REST API 키 수정 > '비즈니스 인증 리다이렉트 URI' 와 글자까지 동일 — 비우면 이 저장소의 대시보드 주소(https://<owner>.github.io/<repo>/)"
+        required: false
+        default: ""
       pin_account:
         description: "광고계정을 Secret KAKAO_AD_ACCOUNT_ID 로 고정 (false = 동의 화면에서 직접 선택, KOE234 회피)"
         default: "false"
@@ -26,7 +26,7 @@ jobs:
           if not key: print("::error::Secret KAKAO_REST_API_KEY 가 없습니다"); raise SystemExit(1)
           key_enc = "%" + format(ord(key[0]), "02X") + key[1:]   # 로그 마스킹 회피
           acc = os.environ.get("KAKAO_AD_ACCOUNT_ID", "").strip()
-          q = {"client_id": key_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code", "scope": "moment_management", "state": "kakao"}
+          q = {"client_id": key_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}", "response_type": "code", "scope": "moment_management", "state": "kakao"}
           if "${{ github.event.inputs.pin_account }}" == "true" and acc:
               q["resource_ids"] = f"moment:{acc}"   # ID 가 틀리거나 권한 없는 계정이면 KOE234
           url = "https://kauth.kakao.com/oauth/business/authorize?" + urllib.parse.urlencode(q, safe="%*:")

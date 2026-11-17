@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       redirect_uri:
-        description: "Cloud Console OAuth 클라이언트의 '승인된 리디렉션 URI' 와 글자까지 동일"
-        required: true
-        default: "https://mkroadmaster-spec.github.io/dearmami-ops-status/"
+        description: "Cloud Console OAuth 클라이언트의 '승인된 리디렉션 URI' 와 글자까지 동일 — 비우면 이 저장소의 대시보드 주소(https://<owner>.github.io/<repo>/)"
+        required: false
+        default: ""
 
 jobs:
   url:
@@ -21,7 +21,7 @@ jobs:
           cid = os.environ["GOOGLE_ADS_CLIENT_ID"].strip()
           if not cid: print("::error::Secret GOOGLE_ADS_CLIENT_ID 가 없습니다"); raise SystemExit(1)
           cid_enc = "%" + format(ord(cid[0]), "02X") + cid[1:]   # 로그 마스킹 회피
-          q = urllib.parse.urlencode({"client_id": cid_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri }}", "response_type": "code",
+          q = urllib.parse.urlencode({"client_id": cid_enc, "redirect_uri": "${{ github.event.inputs.redirect_uri || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}", "response_type": "code",
                                       "scope": "https://www.googleapis.com/auth/adwords", "access_type": "offline", "prompt": "consent", "state": "google"}, safe="%")
           url = "https://accounts.google.com/o/oauth2/v2/auth?" + q
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:

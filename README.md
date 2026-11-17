@@ -3,7 +3,7 @@
 카페24 매출·주문·접속통계 + GA4 사이트 분석 + Meta/네이버/카카오/구글 광고 + 소재·키워드 히스토리 + 경쟁사 트렌드를 **매일 무인 수집**해
 5개 탭(**카페24 어드민 / 광고 / 광고 히스토리 / 주간 리포트(월간 포함, Word 다운로드) / 채널 연결**)으로 보여주는 무료 스택 대시보드.
 기존 운영 대시보드와 같은 탭·지표·리포트 시스템을 스킬 명세대로 재구현했고, 채널은 자격증명을 넣는 순서대로 하나씩 켜진다.
-1차 업체: **디어마미**(dearmami.co.kr). 다른 업체 전환은 `scripts/new_client.py`, 절차·화면 설명은 `.claude/skills/cafe24-sales-dashboard` (다른 Claude 에 설치할 패키지는 `bash scripts/build_skill.sh`).
+1차 업체: **디어마미**(dearmami.co.kr). 다른 업체 전환은 `scripts/new_client.py`, 절차·화면 설명은 `.claude/skills/ops-dashboard` (다른 Claude 에 설치할 패키지는 `bash scripts/build_skill.sh`).
 
 ```
 수집기(채널별, 키 없으면 자동 스킵) → facts(정규화) → kpi_daily(집계) → SQLite/Neon → FastAPI → 대시보드
@@ -34,7 +34,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 | `docs/clients/<id>.md` | 업체별 온보딩 기록(담당자 발급 체크리스트) |
 | `render.yaml` | Render Blueprint (무료 웹 서비스) |
 | `docs/` | 원본 가이드 7종 + `SETUP-GUIDE.md`(순차 가이드) |
-| `.claude/skills/` | cafe24-sales-dashboard(설치·화면·운영 통합) · 카페24-운영현황 · 온라인-광고 · sns-auto-operation 스킬 |
+| `.claude/skills/` | ops-dashboard(설치·화면·운영 통합) · 카페24-운영현황 · 온라인-광고 · sns-auto-operation 스킬 |
 
 ## 비밀번호 보호
 `DASHBOARD_PASSWORD` 를 설정하면 서버는 `/login` 로그인(30일 쿠키), 정적 내보내기(`export_static.py`)는 스냅샷을 AES-GCM 으로 암호화해 비밀번호 없이는 열 수 없다. 비밀번호는 `secrets.env`/Render env/GitHub Secrets 에만 두고 코드에 넣지 않는다.
