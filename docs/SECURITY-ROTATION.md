@@ -26,7 +26,7 @@ Client Secret 을 재발급하면 기존 access/refresh 토큰이 무효화되�
 3. **DB 옛 토큰 비우기**: Actions → **`cafe24 token reset`** → Run
    (keys 기본값 그대로 = meta + cafe24 토큰 삭제, 또는 `cafe24_access_token,cafe24_refresh_token`)
 4. **재인증(부트스트랩)**:
-   - 인가 URL 생성(로컬): `python scripts/cafe24_auth.py --authorize --redirect-uri https://keek-ops-dashboard.onrender.com`
+   - 인가 URL 생성(로컬): `python scripts/cafe24_auth.py --authorize --redirect-uri https://<서비스명>.onrender.com`
    - 브라우저로 URL 열고 **승인** → 리다이렉트 주소창의 `code=` 값 복사 (⚠ 1분 내 사용)
    - Actions → **`cafe24 token bootstrap`** → Run → `code` 붙여넣기 / `redirect_uri` 동일 입력
 5. 확인: Actions → `ops daily collect` 실행 → cafe24 14건 등 정상 수집
@@ -46,7 +46,7 @@ App Secret 재설정은 노출된 장기 토큰을 무력화합니다.
 
 **근본 해결 — 만료 없는 시스템 사용자 토큰으로 바꾼다** (한 번 하면 다시 안 끊김):
 1. **business.facebook.com** → 비즈니스 설정 → 사용자 → **시스템 사용자** → (없으면) 추가(역할: 관리자)
-2. 그 시스템 사용자에 **자산 추가** → 광고 계정(keek) → 권한 "광고 계정 관리" 또는 최소 "성과 보기"
+2. 그 시스템 사용자에 **자산 추가** → 광고 계정 → 권한 "광고 계정 관리" 또는 최소 "성과 보기"
 3. **토큰 생성** → 앱 선택 → 만료 **"만료되지 않음"** → 권한 `ads_read` (+ `read_insights`) 체크 → 생성 → 복사(1회만 노출)
 4. **GitHub Secret `META_ACCESS_TOKEN`** 을 새 값으로 교체 (APP_ID/APP_SECRET/AD_ACCOUNT_ID 는 그대로)
 5. **DB 옛 토큰 비우기**: Actions → `cafe24 token reset` → keys 에 `meta_access_token` 만 입력 → Run

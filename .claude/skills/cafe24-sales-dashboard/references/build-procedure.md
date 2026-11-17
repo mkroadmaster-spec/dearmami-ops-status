@@ -60,10 +60,10 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 - `report_docx.py`: 리포트 데이터 → Word (python-docx). 섹션 번호는 그려지는 섹션만 순서대로.
 - `alerts.py`: 전일·전주·전년, 7일 평균 대비 ±30% 급등락, ROAS<200%, 수집 실패 채널.
 
-## 5. API·화면 (이미 구현) — keek 대시보드 스크린샷 기준으로 동일 구성 (2026-10-28 재구성)
+## 5. API·화면 (이미 구현) — 원본 대시보드 기준으로 동일 구성 (2026-10-28 재구성)
 
 - `api/main.py`: `/health` `/api/config` `/api/dates` `/api/channels` `/api/summary` `/api/period-comparison` `/api/daily` `/api/digest` `/api/breakdown` `/api/shop/analytics` `/api/ads/channels` `/api/ads/keywords(channel,sort)` `/api/creatives/overview|trend` `/api/ga4/site` `/api/competitors/trend` `/api/report/weekly(.docx)(week)` `/api/report/monthly(.docx)(month)` `/api/logs`. 요약은 **선택 기간 합계 + 직전 동일 길이 비교**.
-- 공통 UI(keek): 네이비 헤더 + **조회일** 선택 → 탭 → **오늘의 브리핑**(이모지 요약 줄 · 한 문장 · 4박스: 핵심지표/7일 평균 급등락/이상치·신규 등장/광고 지표, 접기) → **기간 선택**(어제·최근 7/14/30일·직접 + 비교: 직전 기간·전주/전월/전년 동기간, 선택·비교기간 표시) → 파란 상단선 KPI 카드. 모든 데이터 API 는 `cmp_from/cmp_to` 를 받는다. ROAS 는 `x` 배수 표기.
+- 공통 UI: 네이비 헤더 + **조회일** 선택 → 탭 → **오늘의 브리핑**(이모지 요약 줄 · 한 문장 · 4박스: 핵심지표/7일 평균 급등락/이상치·신규 등장/광고 지표, 접기) → **기간 선택**(어제·최근 7/14/30일·직접 + 비교: 직전 기간·전주/전월/전년 동기간, 선택·비교기간 표시) → 파란 상단선 KPI 카드. 모든 데이터 API 는 `cmp_from/cmp_to` 를 받는다. ROAS 는 `x` 배수 표기.
 - `dashboard/index.html` 단일 파일, 8탭(해시 라우팅 `#ops|ads|history|ga4|comp|weekly|monthly|channels`):
   1. **카페24 어드민**: KPI 카드 → 핵심 지표 기간 비교(전일/전주/전년) → 일별 매출 추이(+누적 매출 vs 목표 페이스, `metrics.yaml targets.monthly_sales`) → 신규 vs 재구매 매출(누적 영역) · 광고비 vs 비광고 매출 → 디바이스 도넛+상세 → 방문자 상세 타일 · 신규회원(API 미제공) → 방문자 추이(전체/신규/재방문) → 카테고리 TOP10 · 베스트 TOP5 → **접속통계**(상품별 조회→담기→주문(인라인 바), 검색어/도메인/광고채널(비중·비교 대비·신규★), 담기율 경고, 회원/비회원, 페이지뷰) → 일별 운영 데이터(14일) → 세부 구성 칩
   2. **광고**: KPI(총 광고비·광고 매출·ROAS·노출량·클릭수·전환율·CTR·CPC·매출대비; 리드젠 `lead_gen: true`) → **채널별 예산 비율 바** → 채널별 성과 요약표(+GA4 전환) → **채널별 상세·흐름**(채널마다 6 미니카드 + 최근 30일 광고비 막대·ROAS 선) → 미연동 채널 안내
@@ -135,7 +135,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 ---
 
-## 반드시 피할 사고 (keek 실제 사례 + 이번 구축에서 겪은 것)
+## 반드시 피할 사고 (실제 사례 + 이번 구축에서 겪은 것)
 
 - 카페24 refresh 회전분 미저장 → 다음 실행 `invalid_grant`. `from_store` 외 금지.
 - scope 축소 재인증 → 오류 없이 지표가 `—`. 7개 전부. `cafe24_auth.py --status` 로 확인.

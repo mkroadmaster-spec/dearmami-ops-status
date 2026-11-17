@@ -1,6 +1,6 @@
 # 신규 업체 이식 체크리스트 — 대시보드 + SNS 자동운영
 
-keek(pslab) 에서 구축한 시스템을 **다른 업체에 그대로 옮길 때** 필요한 것 전부.
+기존 업체 에서 구축한 시스템을 **다른 업체에 그대로 옮길 때** 필요한 것 전부.
 구성은 세 덩어리이고, 업체가 원하는 것만 고르면 된다.
 
 | 덩어리 | 무엇 | 스킬 | 소요 |
@@ -31,7 +31,7 @@ keek(pslab) 에서 구축한 시스템을 **다른 업체에 그대로 옮길 �
 | **Neon** | Postgres (수집 데이터 영속) | 무료 | `DATABASE_URL` 발급. 없으면 토큰 회전이 안 남아 무인 수집 깨짐 |
 | **Render** | 대시보드 웹 서버 | 무료 / Starter $7 | 무료는 15분 뒤 잠듦(첫 접속 30~60초). 10분 keepalive 는 깃허브가 미뤄서 불완전 |
 | **Google Cloud** | GA4 Data API 서비스계정 (+ C 의 Blogger·YouTube OAuth) | 무료 | 프로젝트 1개 |
-| **Slack** (선택) | 수집 실패·주간 리포트 알림 | 무료 | Webhook URL. **없으면 토큰 끊겨도 아무도 모름** (keek 36일 결측 사례) |
+| **Slack** (선택) | 수집 실패·주간 리포트 알림 | 무료 | Webhook URL. **없으면 토큰 끊겨도 아무도 모름** (과거 36일 결측 사례) |
 | **Telegram** (선택, C) | 발행 알림 | 무료 | 봇 토큰 + chat id |
 
 ---
@@ -56,8 +56,8 @@ keek(pslab) 에서 구축한 시스템을 **다른 업체에 그대로 옮길 �
 - `config/sources.yaml` — `shop.mall_id`, `brand`
 - `config/metrics.yaml` — 카테고리 그룹(업체 카테고리명)
 - `render.yaml` — `services[].name`
-- `.github/workflows/keek-*.yml`, `cafe24-authorize-url.yml` — 하드코딩 도메인 `keek-ops-dashboard.onrender.com`, `coversomeone1`
-- `dashboard/index.html` `<title>`, `cafe24_ops/report_docx.py` 리포트 제목 "keek"
+- `.github/workflows/원본 업체-*.yml`, `cafe24-authorize-url.yml` — 하드코딩 도메인 `<서비스명>.onrender.com`, `coversomeone1`
+- `dashboard/index.html` `<title>`, `cafe24_ops/report_docx.py` 리포트 제목 "<업체명>"
 
 ### 못 하는 것 (미리 말해둘 것)
 - **신규가입수·회원가입율** — 카페24 API 로 조회 불가. 화면 `—` 정상
@@ -118,13 +118,13 @@ keek(pslab) 에서 구축한 시스템을 **다른 업체에 그대로 옮길 �
 3. Render Blueprint 배포 (`render.yaml`) → 환경변수에 `DATABASE_URL` + 카페24/GA4 키
 4. 카페24 토큰 1회 승인 (담당자 클릭)
 5. Actions `ops daily collect` 수동 실행 `days: 30`, `skip: competitor` → 백필
-6. 검증 워크플로: `cafe24-analytics-diag`(scope) · `keek-api-smoke`(전 엔드포인트) · `cafe24-verify`(정확도)
+6. 검증 워크플로: `cafe24-analytics-diag`(scope) · `원본 업체-api-smoke`(전 엔드포인트) · `cafe24-verify`(정확도)
 7. 광고 토큰 들어오는 대로 B 채널 추가 (없는 채널은 자동 스킵)
 8. C 는 별도 저장소에서 `sns-auto-operation` 스킬 §3 순서대로
 
 ---
 
-## 6. 반드시 피할 사고 (keek 에서 실제로 난 것)
+## 6. 반드시 피할 사고 (원본 업체 에서 실제로 난 것)
 
 - **카페24 refresh_token 회전** — 읽기만 하고 되쓰지 않는 스크립트 1회로 체인이 끊김. `from_store` 만 쓸 것
 - **scope 축소 재인증** — 후기·품절·통계가 **오류 없이 빈 값**으로 보임. 7개 전부

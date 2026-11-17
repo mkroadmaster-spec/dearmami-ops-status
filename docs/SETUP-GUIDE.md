@@ -168,7 +168,7 @@ DASHBOARD_URL=https://<서비스명>.onrender.com     # 또는 아티팩트 링�
 이후 매일 07:00 KST 수집 직후 브리핑이, 월요일 08:25 KST 에는 주간 리포트 .docx 가 텔레그램으로 온다. 수집 실패 채널도 같은 메시지에 🔴 로 표시.
 
 **Slack (선택)**: api.slack.com/apps → Incoming Webhooks → `SLACK_WEBHOOK_URL=...`
-(둘 다 없으면 토큰이 끊겨도 아무도 모른다 — keek 36일 결측 사례.)
+(둘 다 없으면 토큰이 끊겨도 아무도 모른다 — 과거 36일 결측 사례.)
 
 ---
 

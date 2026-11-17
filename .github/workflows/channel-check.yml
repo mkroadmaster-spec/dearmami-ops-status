@@ -65,7 +65,8 @@ jobs:
                   out("- " + shape(n))
               try:
                   rep = call()
-                  out(f"- ✅ 어제({d}) 리포트: 광고비 {rep['ad_cost']:,.0f} · 노출 {rep['impressions']:,.0f} · 클릭 {rep['clicks']:,.0f} · 전환 {rep['conversions']:,.0f}")
+                  has = lambda k: "있음" if rep.get(k) else "0"   # 공개 로그 — 금액·수치는 찍지 않고 값이 있는지만
+                  out(f"- ✅ 어제({d}) 리포트 조회 성공: 광고비 {has('ad_cost')} · 노출 {has('impressions')} · 클릭 {has('clicks')} · 전환 {has('conversions')}")
               except Exception as e:
                   msg = re.sub(r"<[^>]+>|\s+", " ", str(e))[:600]
                   out(f"- ❌ {type(e).__name__}: {msg}")

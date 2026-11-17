@@ -105,13 +105,13 @@ def build_snapshot() -> dict:
 
 
 def encrypt(plain: str, password: str) -> str:
-    """PBKDF2-SHA256(200k) → AES-256-GCM. base64(salt16 + iv12 + ciphertext). 브라우저 Web Crypto 로 복호화."""
+    """PBKDF2-SHA256(600k) → AES-256-GCM. base64(salt16 + iv12 + ciphertext). 브라우저 Web Crypto 로 복호화."""
     import base64
     import hashlib
     import os
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     salt, iv = os.urandom(16), os.urandom(12)
-    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 200_000, dklen=32)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 600_000, dklen=32)
     ct = AESGCM(key).encrypt(iv, plain.encode("utf-8"), None)
     return base64.b64encode(salt + iv + ct).decode()
 

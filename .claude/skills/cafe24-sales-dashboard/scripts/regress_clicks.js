@@ -9,9 +9,11 @@ const { chromium } = require('playwright');
   const banner = async (tag) => { const t = await p.evaluate(() => { const e = document.querySelector('#error'); return e && !e.classList.contains('hidden') ? e.textContent.trim() : ''; }); if (t) errs.push(`${tag}: ${t.slice(0, 120)}`); };
   await banner('first load');
   for (const pp of ['1', '14', '30', '7']) for (const c of ['week', 'month', 'year', 'prev']) { await p.click(`#range [data-p="${pp}"]`); await p.waitForTimeout(250); await p.click(`#range [data-c="${c}"]`); await p.waitForTimeout(450); await banner(`p=${pp} c=${c}`); }
-  for (const t of ['ads', 'history', 'ga4', 'comp', 'weekly', 'monthly', 'channels', 'ops']) { await p.click(`[data-tab=${t}]`); await p.waitForTimeout(500); await banner('tab ' + t); }
+  const tabs = await p.$$eval('nav button', bs => bs.map(x => x.dataset.tab));   // 숨긴 탭(hidden_tabs)은 메뉴에 없다
+  for (const t of [...tabs.filter(x => x !== 'ops'), 'ops']) { await p.click(`[data-tab=${t}]`); await p.waitForTimeout(500); await banner('tab ' + t); }
   for (const h of ['meta', 'google', 'kakao', 'naver_powerlink', 'naver_place']) { await p.click('[data-tab=history]'); await p.click(`[data-h=${h}]`); await p.waitForTimeout(400); await banner('hist ' + h); }
-  await p.click('[data-tab=comp]'); await p.waitForTimeout(300);
-  console.log('comp empty msg visible:', await p.evaluate(() => { const e = document.querySelector('#chComp').parentElement.querySelector('.empty'); return !!e && e.offsetParent !== null; }));
+  if (tabs.includes('comp')) { await p.click('[data-tab=comp]'); await p.waitForTimeout(300);
+    console.log('comp empty msg visible:', await p.evaluate(() => { const e = document.querySelector('#chComp').parentElement.querySelector('.empty'); return !!e && e.offsetParent !== null; })); }
+  console.log('tabs:', tabs.join(','));
   console.log('errors:', errs.length ? errs : 'none'); await b.close();
 })();

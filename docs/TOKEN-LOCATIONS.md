@@ -9,7 +9,7 @@
 ## 1. 카페24 (매출·주문)
 | 변수 | 종류 | 위치 |
 |---|---|---|
-| `CAFE24_MALL_ID` | 🔎 | 쇼핑몰 주소 `keek.cafe24.com` 의 `keek` |
+| `CAFE24_MALL_ID` | 🔎 | 쇼핑몰 주소 `<몰아이디>.cafe24.com` 의 `<몰아이디>` |
 | `CAFE24_CLIENT_ID` / `CAFE24_CLIENT_SECRET` | 🔎 | **developers.cafe24.com** → 내 앱 → 앱 선택 → "앱 정보/인증 정보"의 Client ID, Secret |
 | `CAFE24_ACCESS_TOKEN` / `CAFE24_REFRESH_TOKEN` | 🔧 | 콘솔에 없음 → `python scripts/cafe24_auth.py` 로 OAuth 발급 |
 

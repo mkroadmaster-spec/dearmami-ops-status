@@ -39,7 +39,7 @@
          font: 14px/1.5 -apple-system, "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
   body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--navy); }
   main { max-width: 1180px; margin: 0 auto; padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  /* 헤더 (keek: 네이비 밴드 + 조회일) */
+  /* 헤더 (네이비 밴드 + 조회일) */
   .hero { background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: var(--on-navy); border-radius: 14px; padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
   .hero h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
   .hero .sub { color: var(--on-navy-2); font-size: 12px; width: 100%; }
@@ -68,7 +68,7 @@
   .box b { display: block; margin-bottom: 4px; font-size: 12px; }
   .box ul { margin: 0; padding-left: 16px; color: var(--text-2); } .box li { margin: 2px 0; }
   @media (max-width: 760px) { .boxes { grid-template-columns: 1fr; } }
-  /* 기간 선택 (keek) */
+  /* 기간 선택  */
   .range { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
   .range .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .range .lab { font-size: 11px; color: var(--text-3); margin-right: 2px; }
@@ -192,9 +192,9 @@
 <main>
   <div class="hero">
     <h1 id="brand">운영 대시보드</h1>
-    <span class="badge" id="modeBadge">…</span>
+    <span class="badge" id="modeBadge">…</span><span class="badge demo hidden" id="staleBadge"></span>
     <div class="right"><span>조회일</span><input type="date" id="baseDate" aria-label="조회일"><span id="lastRun"></span></div>
-    <div class="sub">자사몰 통합 자동화 · 데일리 수집 (daily, 07:00 KST) · <span id="siteUrl"></span></div>
+    <div class="sub">자사몰 통합 자동화 · 매일 아침 자동 수집 · <span id="siteUrl"></span></div>
   </div>
   <nav>
     <button data-tab="ops" class="on">카페24 어드민</button><button data-tab="ads">광고</button><button data-tab="history">광고 히스토리</button>
@@ -203,7 +203,7 @@
   </nav>
   <div id="error" class="err hidden"></div>
 
-  <!-- 오늘의 브리핑 (keek) -->
+  <!-- 오늘의 브리핑  -->
   <div class="brief" id="brief">
     <div class="hd">오늘의 브리핑 <span class="d" id="briefDate"></span><span class="tag muted" id="briefHead"></span><button class="pill" id="briefToggle">분석 접기 ▲</button></div>
     <div class="lines" id="briefLines"></div>
@@ -218,7 +218,7 @@
     </div>
   </div>
 
-  <!-- 기간 선택 (keek) -->
+  <!-- 기간 선택  -->
   <div class="range" id="range">
     <div class="row"><span class="lab">기간</span>
       <button class="pill" data-p="1">어제</button><button class="pill on" data-p="7">최근 7일</button><button class="pill" data-p="14">최근 14일</button><button class="pill" data-p="30">최근 30일</button><button class="pill" data-p="custom">직접 선택</button>
@@ -363,7 +363,7 @@ async function decryptSnapshot(password) {  // PBKDF2-SHA256(200k) → AES-256-G
   const raw = Uint8Array.from(atob(ENC), c => c.charCodeAt(0));
   const salt = raw.slice(0, 16), iv = raw.slice(16, 28), ct = raw.slice(28);
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
-  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
   return JSON.parse(new TextDecoder().decode(plain));
 }
@@ -777,7 +777,7 @@ async function loadComp() {
   cv.classList.toggle('hidden', !brands.length); em.classList.toggle('hidden', !!brands.length);
 }
 
-// ---------- 리포트 (주간/월간, keek 10섹션) ----------
+// ---------- 리포트 (주간/월간) ----------
 const REPKEY = { weekly: null, monthly: null };
 function shiftKey(kind, dir) { const k = REPKEY[kind]; if (!k) return; REPKEY[kind] = kind === 'weekly' ? addD(k, 7 * dir) : addM(k + '-01', dir).slice(0, 7); }
 // 스냅샷(정적 페이지)에 들어 있는 기간인지 — 이전/다음 버튼 활성화용
@@ -914,6 +914,10 @@ async function loadAll() {
     const mb = $('#modeBadge'); mb.textContent = CFG.mode === 'demo' ? '데모 데이터' : 'LIVE'; mb.classList.add(CFG.mode === 'demo' ? 'demo' : 'live');
     $('#lastRun').textContent = CFG.last_run_at ? `· 수집 ${CFG.last_run_at.replace('T', ' ').slice(0, 16)} UTC` : '· 수집 기록 없음';
     if (SNAP) $('#lastRun').textContent += ` · 스냅샷 ${SNAP.generated_at.replace('T', ' ').slice(0, 16)} UTC`;
+    // 데이터가 멈췄는데 아무도 모르는 일을 막는다 — 어제 날짜가 정상. 3일 이상 벌어지면 헤더에 경고.
+    if (dates.max) { const dayMs = 864e5, kstToday = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
+      const lag = Math.round((new Date(kstToday) - new Date(dates.max)) / dayMs), sb = $('#staleBadge');
+      if (CFG.mode !== 'demo' && lag >= 3) { sb.textContent = `⚠ 마지막 데이터 ${dates.max} (${lag}일 전) — 수집 확인 필요`; sb.title = 'GitHub Actions 의 ops daily collect 가 돌고 있는지, 채널 연결 탭의 수집 로그를 확인하세요'; sb.classList.remove('hidden'); } }
     if (!dates.max) { showErr('아직 수집된 데이터가 없습니다.\n데모로 틀을 확인: python scripts/run_all.py --mode demo --days 75\n실데이터: 채널 연결 탭 → secrets.env 채우기 → python scripts/run_all.py --mode live --days 14'); return; }
     BASE = dates.max; $('#baseDate').value = BASE; $('#baseDate').max = BASE; if (dates.min) $('#baseDate').min = dates.min;
     computeRange(); await loadAll();

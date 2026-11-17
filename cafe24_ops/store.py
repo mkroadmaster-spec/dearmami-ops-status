@@ -187,12 +187,25 @@ class Store:
                   (_now(), date, source, status, mask_secrets(message)[:2000]))
 
     def recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
-        return self.rows("SELECT run_at, date, source, status, message FROM collect_log ORDER BY run_at DESC LIMIT ?",
+        rows = self.rows("SELECT run_at, date, source, status, message FROM collect_log ORDER BY run_at DESC LIMIT ?",
                          (limit,))
+        for r in rows:  # 가리기 전에 저장된 옛 기록에도 키가 남아 있을 수 있다
+            r["message"] = mask_secrets(r.get("message") or "")
+        return rows
+
+    def db_size_mb(self) -> float | None:
+        """DB 크기(MB). Postgres 만 (무료 Neon 한도 0.5GB 감시용)."""
+        if not self.is_pg:
+            return None
+        try:
+            return float(self.rows("SELECT pg_database_size(current_database()) AS b")[0]["b"]) / 1024 / 1024
+        except Exception:  # noqa: BLE001
+            return None
 
     def last_status_by_source(self) -> dict[str, dict[str, Any]]:
         rows = self.rows("SELECT run_at, date, source, status, message FROM collect_log ORDER BY run_at DESC LIMIT 500")
         out: dict[str, dict[str, Any]] = {}
         for r in rows:
+            r["message"] = mask_secrets(r.get("message") or "")
             out.setdefault(r["source"], r)
         return out

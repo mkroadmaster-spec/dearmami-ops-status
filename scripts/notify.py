@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import os
 import argparse
 import html
 import sys
@@ -30,7 +31,8 @@ def main() -> int:
     url = config.env("DASHBOARD_URL")
 
     plain = f"[{brand}] {d} 브리핑 — {dg['headline']}\n" + "\n".join(f"• {l}" for l in dg["lines"]) + (f"\n{url}" if url else "")
-    print(plain)
+    if not os.environ.get("GITHUB_ACTIONS"):  # 공개 저장소의 Actions 로그는 누구나 본다 → 브리핑(금액 포함)은 찍지 않는다
+        print(plain)
     sent = []
     if slack.is_configured():
         sent.append(f"slack={'OK' if slack.send(plain) else '실패'}")

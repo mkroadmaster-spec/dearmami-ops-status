@@ -11,6 +11,10 @@ on:
         description: "리포트 주의 아무 날짜 (YYYY-MM-DD, 비우면 지난주)"
         default: ""
 
+concurrency:            # 일일 수집과 같은 날짜를 동시에 쓰지 않도록 같은 대기열
+  group: ops-collect
+  cancel-in-progress: false
+
 jobs:
   report:
     runs-on: ubuntu-latest

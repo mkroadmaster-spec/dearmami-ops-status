@@ -17,7 +17,7 @@
 1. https://neon.tech 가입(깃허브 로그인) → **Create project**
 2. 대시보드의 **Connection string** 복사 (`postgresql://...?sslmode=require`)
 3. GitHub 저장소 시크릿에 등록:
-   https://github.com/leejiho-pslab/pslab/settings/secrets/actions/new
+   https://github.com/<owner>/<repo>/settings/secrets/actions/new
    - Name: `DATABASE_URL` / Value: 복사한 문자열
 4. → 다음 수집부터 Neon 에 누적 시작. (수동 즉시 확인: Actions 탭에서 `ops daily collect` Run workflow)
 
@@ -33,16 +33,16 @@
 - https://developers.facebook.com → 액세스 토큰(`ads_read`) + 광고계정 ID
 - 시크릿: `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`
 
-### 3. 네이버 경쟁사 자동수집 — 산산기어/살로몬 (5분)
+### 3. 네이버 경쟁사 자동수집 — 경쟁사A / 경쟁사B (5분)
 - https://developers.naver.com → 앱 등록(검색어트렌드+검색 API)
 - 시크릿: `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`
-- 경쟁사는 이미 `config/sources.yaml` 에 **산산기어 / 살로몬** 으로 설정됨.
+- 경쟁사는 이미 `config/sources.yaml` 에 **경쟁사A / 경쟁사B** 으로 설정됨.
 
 ### 4. 배포 (Render, 20분) — URL 로 접속 가능한 대시보드
 1. https://render.com 가입(깃허브 로그인)
 2. **New → Blueprint** → 이 저장소 연결 → 기본 브랜치 선택
 3. `render.yaml` 자동 인식 → 시크릿 입력란에 **최소 `DATABASE_URL`** (+ 위에서 만든 키들) 붙여넣기
-4. **Deploy** → `https://keek-ops-dashboard.onrender.com` 발급
+4. **Deploy** → `https://<서비스명>.onrender.com` 발급
    > GitHub Actions 와 같은 `DATABASE_URL` 을 쓰면, 수집한 실데이터가 그대로 화면에 뜬다.
 
 ### 5. (후순위) 카카오모먼트 / 구글애즈

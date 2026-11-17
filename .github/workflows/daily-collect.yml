@@ -1,10 +1,10 @@
 name: ops daily collect (all channels)
 
-# 매일 07:00 KST = 22:00 UTC (전날). 최근 3일 재수집 = 지연 확정 데이터 보정 + 결번 자가치유.
+# 매일 06:17 KST = 21:17 UTC (전날). 실제 시작은 GitHub 사정으로 늦어질 수 있다 — 배포는 수집 완료에 맞춰 자동 실행(pages-deploy 의 workflow_run). 최근 3일 재수집 = 지연 확정 데이터 보정 + 결번 자가치유.
 # schedule 은 기본 브랜치(main)에 있을 때만 동작. Secrets 없는 채널은 자동 스킵.
 on:
   schedule:
-    - cron: "0 22 * * *"
+    - cron: "17 21 * * *"     # 06:17 KST — 정각(:00)은 GitHub 예약 실행이 몰려 몇 시간씩 밀린다
   workflow_dispatch:
     inputs:
       days:
@@ -26,6 +26,10 @@ on:
 concurrency:
   group: ops-collect
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write        # 아래 '예약 워크플로 유지' 단계용
 
 jobs:
   collect:
@@ -90,5 +94,14 @@ jobs:
           [ "${{ github.event.inputs.reset }}" = "true" ] && ARGS="$ARGS --reset"
           python scripts/run_all.py $ARGS 2>&1 | tee run.log
           { echo "## 수집 결과"; echo; echo '```'; tail -n 40 run.log; echo '```'; echo; echo "대시보드 갱신: Actions → **pages deploy (dashboard)** → Run workflow (매일 07:40 자동)"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: 예약 워크플로 유지 (60일 무커밋 시 GitHub 가 예약 실행을 끄는 것 방지)
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wf in daily-collect.yml pages-deploy.yml cafe24-weekly-report.yml api-smoke.yml; do
+            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$wf/enable" >/dev/null 2>&1 && echo "enabled $wf" || echo "skip $wf"
+          done
       - name: 브리핑 (Slack/텔레그램 설정 시 전송)
         run: python scripts/notify.py

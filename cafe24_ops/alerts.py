@@ -1,4 +1,4 @@
-"""오늘의 브리핑 (keek 형식) — 이모지 요약 줄 + 한 문장 + 4박스(핵심지표·7일 평균 급등락·이상치/신규 등장·광고 지표).
+"""오늘의 브리핑 (원본 형식) — 이모지 요약 줄 + 한 문장 + 4박스(핵심지표·7일 평균 급등락·이상치/신규 등장·광고 지표).
 
 digest(store, d) → {date, headline, summary, lines[], core[], avg7[], anomalies[], ads[], failures[]}"""
 from __future__ import annotations
@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import date as _date, timedelta
 from typing import Any
 
+from . import config
 from .etl import breakdown
 from .etl.aggregate import compare, derive, sum_range
 
@@ -111,6 +112,9 @@ def digest(store, d: str) -> dict[str, Any]:
     failures = sorted({r["source"] for r in store.recent_logs(300) if r["date"] == d and r["status"] in ("fail", "partial")})
     if failures:
         anomalies.append("🔴 수집 실패/부분 실패 채널: " + ", ".join(failures))
+    size, limit = store.db_size_mb(), float(config.env("DB_LIMIT_MB") or 512)
+    if size is not None and size >= limit * 0.85:  # 한도를 넘으면 저장이 멈춘다 → 미리 알린다
+        anomalies.append(f"🔴 DB 용량 {size:.0f}MB / {limit:.0f}MB ({size / limit * 100:.0f}%) — 한도 초과 전에 오래된 상세 데이터 정리 필요")
     headline = "특이사항 없음" if not anomalies else "확인 필요 항목 있음"
     return {"date": d, "headline": headline, "summary": summary, "lines": lines, "core": core, "avg7": avg_lines,
             "anomalies": anomalies, "ads": ads, "failures": failures, "empty": False}

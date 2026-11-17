@@ -36,7 +36,7 @@
 | `CAFE24_CLIENT_SECRET` | (앱의 Client Secret) | cafe24 |
 | `CAFE24_ACCESS_TOKEN` / `CAFE24_REFRESH_TOKEN` | STEP3 에서 발급 | cafe24(최초 1회) |
 | `META_ACCESS_TOKEN` | 시스템 사용자 토큰(ads_read) | Meta |
-| `META_AD_ACCOUNT_ID` | `1513093573064263` | Meta |
+| `META_AD_ACCOUNT_ID` | `<광고계정 숫자>` | Meta |
 | `NAVER_SA_API_KEY` / `NAVER_SA_SECRET_KEY` / `NAVER_SA_CUSTOMER_ID` | 검색광고 API | Naver SA |
 | `KAKAO_ACCESS_TOKEN` / `KAKAO_AD_ACCOUNT_ID` | 카카오모먼트 | Kakao |
 | `GOOGLE_ADS_*` | 개발자토큰/액세스토큰/Customer ID | Google |
@@ -55,11 +55,11 @@ cafe24 access 토큰은 2시간, refresh 토큰은 2주 만료되며 갱신 시 
 인가코드는 발급 후 ~1분 만료라 로컬이 안전합니다.
 ```bash
 # 1) 인가 URL 생성 → 브라우저 승인 → 주소창 code= 복사
-python scripts/cafe24_auth.py --authorize --redirect-uri "https://keek-ops-dashboard.onrender.com"
+python scripts/cafe24_auth.py --authorize --redirect-uri "https://<서비스명>.onrender.com"
 # 2) 코드 교환 + Postgres 에 저장 (DATABASE_URL 은 STEP1 값)
 DATABASE_URL="postgresql://..." \
 CAFE24_MALL_ID=coversomeone1 CAFE24_CLIENT_ID=... CAFE24_CLIENT_SECRET=... \
-python scripts/cafe24_auth.py --code <코드> --redirect-uri "https://keek-ops-dashboard.onrender.com" --to-db
+python scripts/cafe24_auth.py --code <코드> --redirect-uri "https://<서비스명>.onrender.com" --to-db
 ```
 → 이러면 `CAFE24_ACCESS_TOKEN/REFRESH_TOKEN` Secret 없이도 DB에서 바로 동작.
 
@@ -116,14 +116,14 @@ DATABASE_URL="postgresql://..." uvicorn api.main:app
    - `NAVER_SA_CUSTOMER_ID` (계정 우상단의 CUSTOMER_ID 숫자)
 - 커넥터: 캠페인 목록 → /stats 로 노출·클릭·광고비·전환·전환매출 집계(100개 단위 청크).
 
-## C. 메타 (광고계정 ID = 1513093573064263 확보, 토큰만 남음)
+## C. 메타 (광고계정 ID = <광고계정 숫자> 확보, 토큰만 남음)
 **시스템 사용자 토큰(장수명)** 발급 — 무인 운영에 최적:
 1. **business.facebook.com/settings** (Coversomeone Corporation 비즈니스)
 2. 좌측 **사용자 → 시스템 사용자** → 없으면 **추가**(이름 아무거나, 역할 관리자/직원)
-3. 만든 시스템 사용자 선택 → **자산 할당** → 광고계정 **keek2** 에 권한 부여(관리/보기)
+3. 만든 시스템 사용자 선택 → **자산 할당** → 광고계정 **원본 업체2** 에 권한 부여(관리/보기)
 4. **앱 할당**: 앱이 없으면 developers.facebook.com 에서 앱 1개 생성 후 이 비즈니스에 연결
 5. **토큰 생성(Generate token)** → 앱 선택 → 권한 **`ads_read`** 체크 → 생성
-6. 나온 토큰을 `META_ACCESS_TOKEN` Secret 에, `META_AD_ACCOUNT_ID=1513093573064263`
+6. 나온 토큰을 `META_ACCESS_TOKEN` Secret 에, `META_AD_ACCOUNT_ID=<광고계정 숫자>`
 - 커넥터: act_계정/insights(level=account)로 spend·impressions·clicks·구매전환·전환매출.
   (구매 전환은 omni_purchase→pixel 순으로 인식)
 

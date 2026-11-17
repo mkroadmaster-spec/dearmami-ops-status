@@ -1,4 +1,4 @@
-"""Slack Incoming Webhook 알림 (선택). 없으면 토큰이 끊겨도 아무도 모른다 — keek 36일 결측 사례."""
+"""Slack Incoming Webhook 알림 (선택). 없으면 토큰이 끊겨도 아무도 모른다 — 과거 36일 결측 사례."""
 from __future__ import annotations
 
 import requests

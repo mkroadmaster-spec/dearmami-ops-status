@@ -2,7 +2,7 @@
 
 카페24 매출·주문·접속통계 + GA4 사이트 분석 + Meta/네이버/카카오/구글 광고 + 소재·키워드 히스토리 + 경쟁사 트렌드를 **매일 무인 수집**해
 5개 탭(**카페24 어드민 / 광고 / 광고 히스토리 / 주간 리포트(월간 포함, Word 다운로드) / 채널 연결**)으로 보여주는 무료 스택 대시보드.
-`keek` 대시보드(keek-ops-dashboard)와 같은 탭·지표·리포트 시스템을 스킬 명세대로 재구현했고, 채널은 자격증명을 넣는 순서대로 하나씩 켜진다.
+기존 운영 대시보드와 같은 탭·지표·리포트 시스템을 스킬 명세대로 재구현했고, 채널은 자격증명을 넣는 순서대로 하나씩 켜진다.
 1차 업체: **디어마미**(dearmami.co.kr). 다른 업체 전환은 `scripts/new_client.py`, 절차·화면 설명은 `.claude/skills/cafe24-sales-dashboard` (다른 Claude 에 설치할 패키지는 `bash scripts/build_skill.sh`).
 
 ```
@@ -48,7 +48,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m pytest -q                                        # 테스트
 ```
 
-## 반드시 지킬 것 (keek 사고 사례)
+## 반드시 지킬 것 (실제 사고 사례)
 - 카페24 토큰은 **`Cafe24Client.from_store`** 로만 생성 (refresh 회전분 즉시 DB 저장). 회귀 테스트 `tests/test_cafe24_token_rotation.py`
 - 카페24 앱 scope **7개 전부** — 빠지면 오류 없이 지표가 빈다
 - Meta 는 **시스템 사용자 토큰**(만료 없음) + Slack 알림

@@ -27,7 +27,7 @@ cp config/secrets.env.example config/secrets.env   # 여기에 값 채움
 2. 권한(scope): `mall.read_order`, `mall.read_customer` / Redirect URI 에 `https://localhost` 등록
 3. 앱의 **Client ID / Secret** 를 `secrets.env` 에 먼저 입력:
    ```
-   CAFE24_MALL_ID=keek
+   CAFE24_MALL_ID=원본 업체
    CAFE24_CLIENT_ID=...
    CAFE24_CLIENT_SECRET=...
    ```

@@ -4,10 +4,15 @@ name: pages deploy (dashboard)
 # - DATABASE_URL Secret 이 있으면 실데이터(Neon) 스냅샷, 없으면 데모 75일
 # - DASHBOARD_PASSWORD Secret 이 있으면 비밀번호 암호화(없으면 누구나 열람 가능 → 경고)
 # 사전 설정: Settings → Pages → Source = GitHub Actions (무료 플랜은 Public 저장소만)
+# 배포 시점: 수집 워크플로가 성공으로 끝나면 바로(workflow_run). GitHub 의 예약 실행은 몇 시간씩 늦어지므로
+# '수집 07:00 → 배포 07:40' 같은 시각 맞추기는 순서가 뒤집힐 수 있다. schedule 은 workflow_run 이 안 돌았을 때의 보험.
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["ops daily collect (all channels)", "cafe24 weekly report"]
+    types: [completed]
   schedule:
-    - cron: "40 22 * * *"      # 07:40 KST — 일일 수집(07:00) 직후 갱신
+    - cron: "23 5 * * *"       # 14:23 KST — 보험용 (수집 뒤 배포가 빠졌을 때)
   push:
     branches: [main]
     paths: [dashboard/**, scripts/export_static.py, .github/workflows/pages-deploy.yml]
@@ -23,6 +28,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Seoul
