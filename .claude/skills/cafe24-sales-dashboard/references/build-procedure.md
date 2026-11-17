@@ -1,16 +1,15 @@
----
-name: 매출-대시보드-구축
-description: 카페24 자사몰 업체의 매출·방문·광고 운영현황 대시보드(cafe24-ops-status)를 새 업체에 처음부터 구축하거나 다른 업체로 복제할 때 사용. 실제 구축한 순서(자료 확인 → 설치 → 설정 → 저장소·클라이언트 → 수집기·ETL → API·화면 → 스크립트·워크플로·테스트 → 링크 게시 → 채널 순차 연결)를 그대로 재현하며, 각 단계의 완료 기준과 함정을 담는다. "새 업체 대시보드 만들어줘", "○○ 업체로 복제", "대시보드 틀부터 잡아줘", "채널 순서대로 연결 가이드", "데모로 먼저 보여줘", "링크로 볼 수 있게" 같은 요청에 사용. 세부 도메인은 '카페24-운영현황'(운영지표), '온라인-광고'(광고·경쟁사) 스킬을 참조.
----
 
-# 매출 대시보드 구축 (업체 복제용 마스터 절차)
+# 새 업체에 처음부터 구축 · 다른 업체로 복제 (마스터 절차)
 
 디어마미(dearmami.co.kr)를 1차 업체로 구축한 순서를 그대로 따른다. **각 단계는 "확인" 명령이 통과해야 다음으로** 간다.
-레퍼런스 구현: 이 저장소(`cafe24-ops-status/`). 도메인 상세는 [`카페24-운영현황`](../카페24-운영현황/SKILL.md) · [`온라인-광고`](../온라인-광고/SKILL.md).
+코드는 동봉 소스(`assets/cafe24-ops-status-src.zip`, 설치는 `scripts/install_source.sh`) 또는 원본 저장소를 복제해 쓴다.
+
+> 이 문서는 구축 **순서**를 담는다. 화면·지표·채널·운영의 최신 상세는 같은 폴더의 `tab-*.md`, `architecture.md`, `channels.md`, `operations.md` 가 기준이다.
+> 이 문서 작성 뒤 추가된 것: 구글·카카오 소재 수집, 크리테오, 상품 카테고리 매핑(`category_map.py`), 비교기간 증감 시각화, GitHub Pages 배포(`pages-deploy.yml`), 진단 워크플로(`probe.yml`), 텔레그램 알림.
 
 ```
 0 자료·결정 → 1 설치 → 2 업체 설정 → 3 저장소·클라이언트 → 4 수집기·ETL·브리핑
-→ 5 API·화면(3탭) → 6 스크립트·워크플로·테스트 → 7 링크 게시 → 8 채널 순차 연결 → 9 무인 자동화
+→ 5 API·화면(8탭) → 6 스크립트·워크플로·테스트 → 7 링크 게시 → 8 채널 순차 연결 → 9 무인 자동화
 ```
 
 > 원칙 3가지: **① 키 없는 채널은 자동 스킵**(한 채널만 켜도 동작) **② 데모 모드로 틀을 먼저 보여준다** **③ 토큰은 DB(app_kv)가 Secret 보다 우선**.
@@ -103,12 +102,12 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python scripts/export_static.py --artifact   # dist/dashboard-static.html
 ```
 - 세션 서버는 외부 접근 불가 → **정적 스냅샷**을 Artifact 로 게시(같은 파일 경로로 재게시하면 URL 유지). 프리셋 7/14/30일만 동작, 사용자 지정 기간은 숨김.
-- 상시 실시간 링크가 필요하면 9단계(Render).
-- **완료 기준**: 링크에서 3탭이 열리고 상단 배지가 데모/LIVE 를 정확히 표시.
+- 상시 공개 링크는 GitHub Pages(`pages-deploy.yml`, 비밀번호 암호화) 가 기본이다. 서버형이 필요하면 9단계(Render).
+- **완료 기준**: 링크에서 8탭이 열리고 상단 배지가 데모/LIVE 를 정확히 표시.
 
 ## 8. 채널 순차 연결 — 쉬운 것부터 (각 5~15분)
 
-가이드 본문은 [`docs/SETUP-GUIDE.md`](../../../docs/SETUP-GUIDE.md). 요약:
+가이드 본문은 소스의 `docs/SETUP-GUIDE.md`. 겪은 함정은 `channels.md`. 요약:
 
 | STEP | 채널 | 핵심 | 확인 |
 |---|---|---|---|
@@ -152,7 +151,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 [ ] 저장소 복제 (업체당 1개)
 [ ] scripts/new_client.py --id --brand --site --mall-id --competitors --categories
-[ ] run_all.py --reset --mode demo --days 60 → dev.sh → 3탭 확인 → export_static.py --artifact → 링크 공유
+[ ] run_all.py --reset --mode demo --days 60 → dev.sh → 8탭 확인 → export_static.py --artifact → 링크 공유
 [ ] docs/clients/<id>.md 담당자 발급 표를 업체에 전달
 [ ] STEP 1 카페24 → smoke ✓ → --reset --mode live
 [ ] STEP 2~8 순서대로, 매 단계 채널 연결 탭 녹색 확인
