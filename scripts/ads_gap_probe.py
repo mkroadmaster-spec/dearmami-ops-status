@@ -68,11 +68,26 @@ print("  " + " " * 18 + " ".join(d[8:] for d in days))
 for ch in sorted(cost):
     print(f"  {ch:<18}" + "  ".join("O" if cost[ch].get(d, 0) > 0 else ("0" if d in cost[ch] else "-") for d in days))
 
-print("\n[최근 30일 수집 로그 중 ads·소재·키워드의 실패/부분실패]")
+import re  # noqa: E402
+
+
+def clean(msg: str) -> str:
+    """키·계정번호가 오류 문구에 섞여 나오므로 긴 영숫자·숫자열을 가린다 (공개 로그)."""
+    return re.sub(r"[0-9a-fA-F]{16,}|\d{5,}", "***", msg or "")[:160]
+
+
+print("\n[최근 12일 ads 수집 기록 — 실행시각 · 대상일 · 상태 · 메시지]")
+since = (end - timedelta(days=11)).isoformat()
+for r in store.rows("SELECT run_at, date, source, status, message FROM collect_log WHERE date>=? AND source='ads' ORDER BY date, run_at", (since,)):
+    print(f"  {r['run_at'][:16]} {r['date']} {r['status']:<7} {clean(r['message'])}")
+
+print("\n[최근 30일 실패/부분실패 요약 — 소스 · 상태 · 건수 · 대표 메시지]")
 since = (end - timedelta(days=30)).isoformat()
-rows = store.rows("SELECT run_at, date, source, status, message FROM collect_log WHERE date>=? AND status IN ('fail','partial') "
-                  "AND source IN ('ads','creative','google_creative','kakao_creative','naver_keyword') ORDER BY run_at DESC LIMIT 40", (since,))
-for r in rows:
-    print(f"  {r['run_at'][:16]} {r['date']} {r['source']:<15} {r['status']:<7} {(r['message'] or '')[:260]}")
-if not rows:
+agg: dict[tuple, list] = {}
+for r in store.rows("SELECT date, source, status, message FROM collect_log WHERE date>=? AND status IN ('fail','partial') ORDER BY run_at DESC", (since,)):
+    k = (r["source"], r["status"], clean(r["message"])[:70])
+    agg.setdefault(k, []).append(r["date"])
+for (src, st, msg), ds in sorted(agg.items()):
+    print(f"  {src:<16} {st:<7} {len(ds):>3}건 ({min(ds)}~{max(ds)})  {msg}")
+if not agg:
     print("  없음")
