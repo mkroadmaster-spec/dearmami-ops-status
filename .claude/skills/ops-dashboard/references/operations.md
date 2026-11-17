@@ -121,6 +121,14 @@ gh api -X POST repos/<R>/actions/workflows/probe.yml/dispatches -f ref=main \
 
 **실제 사고**: 주간 리포트 워크플로(`cafe24-weekly-report.yml`)의 `env` 에 카카오·구글 키가 없었다. 그 실행은 네이버만 받고 "성공"했고, 당시 파이프라인은 성공하면 그 날짜의 `ads` 를 통째로 지웠기 때문에 구글·카카오 8일치가 사라졌다(매일 수집이 최근 3일만 되살려 6일이 비었다). 고친 것: ① `ads` 는 채널 단위로만 교체 ② 주간 워크플로 env 를 daily 와 동일하게. **수집을 돌리는 워크플로를 새로 만들면 env 를 `daily-collect.yml` 에서 그대로 복사한다.**
 
+## DB 사용량 한도 (읽는 양 · 사용 시간)
+
+무료 DB 는 저장 용량 외에 **읽어 가는 양과 사용 시간에도 월 한도**가 있다. 넘으면 접속이 막혀 수집·배포가 전부 멈춘다(`exceeded the quota`). 실제로 겪었다 — `risk-checklist.md` 3번.
+
+- 정적 페이지 내보내기는 (소스·날짜)별로 한 번만 읽고, 지난 기간 리포트는 `app_kv` 의 `report_cache:v<n>:weekly|monthly:<기간>` 에서 꺼낸다. 최근 2개 기간만 매번 새로 계산한다.
+- 리포트의 모양(키)을 바꿨으면 `export_static.py` 의 `REPORT_CACHE` 버전 숫자를 올린다. 백필(`--from`, 10일 초과, `--reset`)을 하면 `run_all.py` 가 캐시를 비운다. 강제로 다시 계산하려면 `export_static.py --refresh-reports`.
+- 배포 로그의 `[export] DB 에서 읽은 facts N줄` 로 읽는 양을 본다.
+
 ## DB 용량 (Neon 무료 0.5GB)
 
 - 행 하나가 약 0.4KB. 디어마미는 2025-01-01부터 약 85만 행, 429MB 였다.

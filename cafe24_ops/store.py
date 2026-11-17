@@ -133,8 +133,14 @@ class Store:
             if v in values:
                 self.exec("DELETE FROM facts WHERE date=? AND source=? AND dims=?", (date, source, r["dims"]))
 
-    def facts(self, date_from: str, date_to: str, source: str | None = None,
-              metric: str | None = None) -> list[dict[str, Any]]:
+    def enable_read_cache(self) -> None:
+        """읽기 전용 작업(정적 페이지 내보내기)용 — (소스, 날짜) 단위로 한 번 읽은 facts 를 기억한다.
+        내보내기는 기간이 겹치는 조회를 수백 번 한다. 캐시 없이 매번 DB 에서 읽으면 무료 DB 의 전송량·사용 시간 한도를 금방 쓴다
+        (실제로 한도 초과로 DB 접속이 막힌 적이 있다). 쓰기와 섞어 쓰지 말 것."""
+        self._day_cache: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        self.rows_read = 0
+
+    def _fetch_facts(self, date_from: str, date_to: str, source: str | None, metric: str | None) -> list[dict[str, Any]]:
         sql = "SELECT date, source, metric, dims, value FROM facts WHERE date BETWEEN ? AND ?"
         params: list[Any] = [date_from, date_to]
         if source:
@@ -146,7 +152,30 @@ class Store:
         out = self.rows(sql + " ORDER BY date", params)
         for r in out:
             r["dims"] = json.loads(r["dims"] or "{}")
+        if getattr(self, "_day_cache", None) is not None:
+            self.rows_read += len(out)
         return out
+
+    def facts(self, date_from: str, date_to: str, source: str | None = None,
+              metric: str | None = None) -> list[dict[str, Any]]:
+        cache = getattr(self, "_day_cache", None)
+        if cache is None or not source or not date_from or not date_to or date_from > date_to:
+            return self._fetch_facts(date_from, date_to, source, metric)
+        from datetime import date as _d, timedelta as _td
+        days, x, end = [], _d.fromisoformat(date_from), _d.fromisoformat(date_to)
+        while x <= end:
+            days.append(x.isoformat()); x += _td(days=1)
+        by_day = cache.setdefault(source, {})
+        missing = [d for d in days if d not in by_day]
+        if missing:  # 빠진 날짜 구간만 한 번에 읽어 날짜별로 나눠 둔다
+            for d in days:
+                if missing[0] <= d <= missing[-1]:
+                    by_day.setdefault(d, [])
+            for r in self._fetch_facts(missing[0], missing[-1], source, None):
+                if r["date"] in missing:
+                    by_day[r["date"]].append(r)
+        out = [r for d in days for r in by_day.get(d, [])]
+        return [r for r in out if r["metric"] == metric] if metric else out
 
     def clear_all_facts(self) -> None:
         self.exec("DELETE FROM facts")

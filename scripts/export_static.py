@@ -27,7 +27,8 @@ from api.main import app  # noqa: E402
 
 PRESETS = (1, 7, 14, 30)
 CMPS = ("prev", "week", "month", "year")
-REPORT_WEEKS, REPORT_MONTHS = 12, 12   # 정적 페이지에 담는 주간·월간 리포트 수
+REPORT_WEEKS, REPORT_MONTHS = 12, 12   # 정적 페이지에 담는 주간·월간 리포트 수 (지난 기간은 캐시에서)
+REPORT_CACHE = "report_cache:v2"        # 리포트 모양(키)을 바꾸면 숫자를 올린다 → 옛 캐시는 쓰지 않는다
 
 
 def _add_months(d: _date, n: int) -> _date:
@@ -51,8 +52,11 @@ def _cmp_range(f: _date, t: _date, mode: str) -> tuple[_date, _date]:
     return f - timedelta(days=n), f - timedelta(days=1)
 
 
-def build_snapshot() -> dict:
+def build_snapshot(refresh_reports: bool = False) -> dict:
+    from api.main import store as _store
     from cafe24_ops import config
+    store = _store()
+    store.enable_read_cache()   # 같은 (소스·날짜)는 한 번만 읽는다
     c = TestClient(app, headers={"X-Dashboard-Password": config.env("DASHBOARD_PASSWORD")})  # 서버 보호 통과
 
     def get(p: str):
@@ -73,16 +77,31 @@ def build_snapshot() -> dict:
         "competitor_directory": get("/api/competitors/directory"), "ranges": {},
     }
     # 리포트는 최근 여러 기간을 담아 정적 페이지에서도 이전/다음으로 넘겨 볼 수 있게 한다 (데이터 없는 기간에서 멈춤)
+    # 지난 기간의 리포트는 다시 바뀌지 않는다 → 한 번 만든 것은 DB(app_kv)에 넣어 두고 재사용한다.
+    # 매번 12개월치를 다시 계산하면 배포 한 번에 DB 에서 수십만 줄을 읽어 무료 DB 한도를 넘긴다.
+    # 최근 2개 기간은 늦게 확정되는 숫자가 있어 항상 새로 계산. 백필을 하면 run_all.py 가 이 캐시를 비운다.
+    def report(kind: str, key: str, fresh: bool, url: str) -> dict:
+        ck = f"{REPORT_CACHE}:{kind}:{key}"
+        if not fresh and not refresh_reports:
+            hit = store.kv_get(ck)
+            if hit:
+                return json.loads(hit)
+        r = get(url)
+        if not fresh and not r.get("empty") and not r.get("missing_dates"):
+            store.kv_set(ck, json.dumps(r, ensure_ascii=False))
+        return r
     snap["reports_weekly"], snap["reports_monthly"] = {}, {}
     wk = _date.fromisoformat(snap["report_weekly"]["range"]["from"])
     for i in range(REPORT_WEEKS):
-        r = snap["report_weekly"] if i == 0 else get(f"/api/report/weekly?week={(wk - timedelta(days=7 * i)).isoformat()}")
+        k = (wk - timedelta(days=7 * i)).isoformat()
+        r = snap["report_weekly"] if i == 0 else report("weekly", k, i < 2, f"/api/report/weekly?week={k}")
         if r.get("empty"):
             break
         snap["reports_weekly"][r["range"]["from"]] = r
     mo = _date.fromisoformat(snap["report_monthly"]["range"]["from"])
     for i in range(REPORT_MONTHS):
-        r = snap["report_monthly"] if i == 0 else get(f"/api/report/monthly?month={_add_months(mo, -i).isoformat()[:7]}")
+        k = _add_months(mo, -i).isoformat()[:7]
+        r = snap["report_monthly"] if i == 0 else report("monthly", k, i < 2, f"/api/report/monthly?month={k}")
         if r.get("empty"):
             break
         snap["reports_monthly"][r["range"]["from"][:7]] = r
@@ -140,11 +159,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--artifact", action="store_true")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--refresh-reports", action="store_true", help="지난 기간 리포트 캐시를 쓰지 않고 전부 다시 계산 (백필·분류 변경 뒤)")
     ap.add_argument("--password", default=None, help="스냅샷 암호화 비밀번호 (기본: 환경변수 DASHBOARD_PASSWORD, 비우면 암호화 없음)")
     a = ap.parse_args()
     from cafe24_ops import config
     password = a.password if a.password is not None else config.env("DASHBOARD_PASSWORD")
-    snap = build_snapshot()
+    snap = build_snapshot(a.refresh_reports)
+    from api.main import store as _store
+    print(f"[export] DB 에서 읽은 facts {getattr(_store(), 'rows_read', 0):,}줄")   # 무료 DB 한도 감시용 — 평소보다 크게 늘면 원인을 찾는다
     out = Path(a.out) if a.out else ROOT / "dist" / ("dashboard-static.html" if a.artifact else "index.html")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(snap, a.artifact, password), encoding="utf-8")

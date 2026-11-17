@@ -50,6 +50,8 @@ def main() -> int:
         print("[run_all] facts/kpi_daily 초기화")
 
     results = pipeline.run_range(store, end, a.days, mode=mode, skip=skip)
+    if a.date_from or a.days > 10 or a.reset:  # 과거 데이터를 다시 받았으면 저장해 둔 지난 리포트는 낡았다 → 다음 배포 때 다시 계산
+        store.exec("DELETE FROM app_kv WHERE key LIKE ?", ("report_cache:%",))
     failed: set[str] = set()
     if a.days > 40:  # 장기 백필은 요약만 (월별 매출 합계 + 실패 건수)
         from collections import defaultdict
