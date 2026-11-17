@@ -683,7 +683,11 @@ async function loadComp() {
   legend('lgComp', brands.map((b, i) => [b.brand, S[i % S.length]]));
   if (brands.length) { const dates = [...new Set(brands.flatMap(b => b.points.map(p => p.date)))].sort();
     mk('chComp', { type: 'line', data: { labels: dates, datasets: brands.map((b, i) => lineDs(b.brand, dates.map(d => (b.points.find(p => p.date === d) || {}).ratio ?? null), S[i % S.length], { pointRadius: 0 })) }, options: baseOpts({ scales: { x: { grid: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 8, callback(v) { return String(this.getLabelForValue(v)).slice(5); } } }, y: { min: 0, max: 100, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--text-2'), maxTicksLimit: 5 } } } }) }); }
-  else { if (charts.chComp) { charts.chComp.destroy(); delete charts.chComp; } $('#chComp').parentElement.innerHTML = '<div class="empty">네이버 오픈API 미연결 (NAVER_CLIENT_ID/SECRET) 또는 competitors 미설정 — STEP 5</div>'; }
+  else { if (charts.chComp) { charts.chComp.destroy(); delete charts.chComp; } }
+  // 캔버스를 지우지 않고 숨긴다 — 지우면 기간·비교 버튼으로 다시 그릴 때 '#chComp' 가 없어 오류가 난다
+  const cv = $('#chComp'), box = cv.parentElement; let em = box.querySelector('.empty');
+  if (!em) { em = document.createElement('div'); em.className = 'empty'; em.textContent = '네이버 오픈API 미연결 (NAVER_CLIENT_ID/SECRET) 또는 competitors 미설정 — STEP 5'; box.appendChild(em); }
+  cv.classList.toggle('hidden', !brands.length); em.classList.toggle('hidden', !!brands.length);
 }
 
 // ---------- 리포트 (주간/월간, keek 10섹션) ----------

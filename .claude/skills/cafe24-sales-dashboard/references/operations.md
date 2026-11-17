@@ -121,12 +121,24 @@ DATABASE_URL=$DB CAFE24_OPS_MODE=demo DASHBOARD_PASSWORD= .venv/bin/python scrip
 
 그다음 Playwright 로 `file:///tmp/site/index.html` 을 열어 해당 탭을 캡처하고 확인한다: 콘솔 오류 0, 390px 폭에서 `document.documentElement.scrollWidth == 390`. 이 스킬의 캡처도 이 방법으로 만들었다(`scripts/capture_screens.js`).
 
+**빈 데이터로도 확인한다.** 데모 DB 에는 모든 채널이 채워져 있어서 "데이터가 없을 때"의 코드 경로를 지나가지 않는다. 실제 업체는 대개 일부 채널이 비어 있다(디어마미: GA4·Meta·경쟁사 없음). 데모 DB 를 복사해 그 소스의 facts 를 지운 뒤 다시 내보내고, `scripts/regress_clicks.js` 로 기간·비교 버튼과 탭을 전부 눌러 본다.
+
+```bash
+cp /tmp/demo.db /tmp/live-like.db
+python3 -c "import sqlite3; c=sqlite3.connect('/tmp/live-like.db'); [c.execute('DELETE FROM facts WHERE source=?',(s,)) for s in ('competitor','ga4','ga4_channel','ga4_page','ga4_event','creative')]; c.commit()"
+DATABASE_URL=sqlite:////tmp/live-like.db CAFE24_OPS_MODE=demo DASHBOARD_PASSWORD= .venv/bin/python scripts/export_static.py --out /tmp/site2/index.html
+node <스킬>/scripts/regress_clicks.js /tmp/site2/index.html      # 'errors: none' 이어야 한다
+```
+
+실제로 놓쳤던 사례: 경쟁사 데이터가 없을 때 그래프 자리(`<canvas>`)를 안내문으로 **바꿔치기**했더니, 기간 버튼을 눌러 다시 그릴 때 캔버스가 없어 "데이터 로드 실패: Cannot read properties of null (reading 'parentElement')" 가 떴다. 빈 상태를 보여줄 때는 캔버스를 지우지 말고 숨기고, 안내문은 따로 둔다.
+
 데모로만 확인했으면 사용자에게 "데모 데이터로 확인했고 실제 화면은 직접 보지 못했다"고 말한다.
 
 ## 문제 해결
 
 | 증상 | 먼저 볼 것 | 흔한 원인 |
 |---|---|---|
+| 위쪽 빨간 띠 "데이터 로드 실패: Cannot read properties of null" | 어느 버튼을 누른 뒤인지 | 다시 그릴 때 화면 요소가 없음(빈 데이터 경로). `regress_clicks.js` 로 재현 |
 | 화면이 예전 그대로 | 배포가 돌았나, 강력 새로고침 | 수집만 하고 배포 안 함 |
 | 특정 채널만 비어 있음 | 채널 연결 탭 카드·로그 | 키 없음(skip), 권한, 토큰 만료 |
 | 전부 0 또는 `—` | `analytics_probe` 로 응답 모양 | 필드 이름이 달라 0 으로 저장, scope 누락 |
