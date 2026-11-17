@@ -5,7 +5,7 @@ from typing import Any
 
 from .. import config
 from ..clients import ads_criteo, ads_gfa, ads_google, ads_kakao, ads_meta, ads_naver, cafe24_client, ga4 as ga4_client, manual_csv, naver_datalab, slack, telegram
-from . import ads, cafe24, cafe24_analytics, competitor, creative, demo, ga4, google_creative, kakao_creative, naver_keyword
+from . import ad_campaign, ads, cafe24, cafe24_analytics, competitor, creative, demo, ga4, google_creative, kakao_creative, naver_keyword
 from .base import Collector
 
 
@@ -43,6 +43,9 @@ REGISTRY: list[Collector] = [
               required_env=ads_naver.REQUIRED_ENV, is_configured=naver_keyword.is_configured,
               collect=naver_keyword.collect, demo=demo.naver_keyword, doc="docs/CONNECT-GUIDE.md#step-4",
               tab="광고 히스토리", sources=naver_keyword.SOURCES),
+    Collector(name="ad_campaign", label="캠페인별 성과 (네이버·구글·카카오)", step="STEP 4~7",
+              required_env=(), is_configured=ad_campaign.is_configured,
+              collect=ad_campaign.collect, demo=demo.ad_campaign, doc="docs/SETUP-GUIDE.md", tab="광고 히스토리"),
     Collector(name="competitor", label="네이버 데이터랩 (경쟁사 트렌드)", step="STEP 5",
               required_env=naver_datalab.REQUIRED_ENV, is_configured=naver_datalab.is_configured,
               collect=competitor.collect, demo=demo.competitor, doc="docs/CONNECT-GUIDE.md#step-3", tab="광고"),
@@ -85,7 +88,7 @@ def channel_status(store=None) -> list[dict[str, Any]]:
     mode = config.mode()
     items: list[dict[str, Any]] = []
     for c in REGISTRY:
-        if c.name in ("ads", "creative", "google_creative", "kakao_creative", "naver_keyword"):
+        if c.name in ("ads", "ad_campaign", "creative", "google_creative", "kakao_creative", "naver_keyword"):
             continue  # 하위 채널 카드로 표시
         items.append({"key": c.name, "label": c.label, "step": c.step, "tab": c.tab, "doc": c.doc,
                       "configured": bool(c.is_configured()),

@@ -189,6 +189,15 @@ def api_ads_keywords(date_from: str | None = F, date_to: str | None = T, channel
                     "ctr": clicks / impr * 100 if impr else None, "cpc": cost / clicks if clicks else None}}
 
 
+@app.get("/api/ads/campaigns")
+def api_ads_campaigns(date_from: str | None = F, date_to: str | None = T, cf: str | None = CF, ct: str | None = CT,
+                      channel: str = "meta") -> dict[str, Any]:
+    """광고 히스토리 — 캠페인별 성과. channel: meta | google | kakao | naver_powerlink | naver_place"""
+    f, t = _range(date_from, date_to)
+    pf, pt = _cmp(f, t, cf, ct)
+    return {"range": {"from": f, "to": t}, "prev_range": {"from": pf, "to": pt}, **breakdown.campaign_report(store(), f, t, channel, pf, pt)}
+
+
 @app.get("/api/creatives/overview")
 def api_creatives(date_from: str | None = F, date_to: str | None = T, channel: str = "meta") -> dict[str, Any]:
     f, t = _range(date_from, date_to)

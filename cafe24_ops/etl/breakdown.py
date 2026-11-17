@@ -393,6 +393,40 @@ def place_report(store, f: str, t: str) -> list[dict[str, Any]]:
     return rows
 
 
+# 캠페인별 성과 — 채널별 원천. ad_campaign(캠페인 단위 수집)이 있으면 그것을, 없으면 소재·키워드 행을 캠페인으로 묶어 근사한다.
+_CAMP_FALLBACK = {"meta": "creative", "google": "google_creative", "kakao": "kakao_creative",
+                  "naver_powerlink": "naver_keyword", "naver_place": "naver_place"}
+
+
+def campaign_report(store, f: str, t: str, channel: str, pf: str | None = None, pt: str | None = None) -> dict[str, Any]:
+    def load(a: str, b: str) -> tuple[dict[str, dict[str, Any]], bool]:
+        rows: dict[str, dict[str, Any]] = {}
+        for x in store.facts(a, b, source="ad_campaign"):
+            if x["dims"].get("channel") != channel:
+                continue
+            r = rows.setdefault(x["dims"].get("campaign_id") or x["dims"].get("campaign", ""), {"campaign": x["dims"].get("campaign", "")})
+            r[x["metric"]] = (r.get(x["metric"]) or 0) + float(x["value"] or 0)
+        if rows:
+            return rows, False
+        src = _CAMP_FALLBACK.get(channel)
+        for x in (store.facts(a, b, source=src) if src else []):  # 근사: 소재·키워드(하루 상한 있음) 합산
+            r = rows.setdefault(x["dims"].get("campaign", ""), {"campaign": x["dims"].get("campaign", "")})
+            r[x["metric"]] = (r.get(x["metric"]) or 0) + float(x["value"] or 0)
+        return rows, bool(rows)
+    cur, approx = load(f, t)
+    prev = load(pf, pt)[0] if (pf and pt) else {}
+    total = sum(r.get("ad_cost", 0) for r in cur.values()) or 1
+    out = []
+    for cid, r in cur.items():
+        p = prev.get(cid, {})
+        d, pd_ = _ad_derive(r), _ad_derive(p) if p else {}
+        out.append({"campaign_id": cid, "campaign": r["campaign"] or "(이름 없음)", **d, "share": (d["ad_cost"] or 0) / total * 100,
+                    "prev": {k: pd_.get(k) for k in ("ad_cost", "ad_revenue", "roas", "ad_conversions", "ad_clicks")} if p else None,
+                    "pct": {k: _pct(d.get(k), pd_.get(k)) for k in ("ad_cost", "ad_revenue", "roas", "ad_conversions", "ad_clicks")} if p else {}})
+    out.sort(key=lambda r: -(r["ad_cost"] or 0))
+    return {"channel": channel, "approx": approx, "rows": out}
+
+
 # ---------------- 경쟁사 ----------------
 def competitor_directory() -> list[dict[str, Any]]:
     """지정 현황 딥링크 — 홈페이지 · 인스타 · FB 광고라이브러리(active) · 구글 광고 투명성."""

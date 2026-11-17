@@ -276,3 +276,19 @@ def naver_keyword(d: str) -> list[Fact]:
                 fact(d, "naver_place", "clicks", clicks, **dims), fact(d, "naver_place", "conversions", clicks * 0.02, **dims),
                 fact(d, "naver_place", "ad_revenue", cost * 2, **dims)]
     return out
+
+
+def ad_campaign(d: str) -> list[Fact]:
+    """캠페인별 성과 데모 — 소재·키워드 데모를 캠페인으로 묶어 만든다 (화면 틀 확인용)."""
+    from collections import defaultdict
+    src_ch = {"creative": "meta", "google_creative": "google", "kakao_creative": "kakao", "naver_keyword": "naver_powerlink", "naver_place": "naver_place"}
+    agg: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for f in creative(d) + google_creative(d) + kakao_creative(d) + naver_keyword(d):
+        ch = src_ch.get(f["source"])
+        if ch and f["metric"] in ("ad_cost", "impressions", "clicks", "conversions", "ad_revenue"):
+            agg[(ch, f["dims"].get("campaign", ""))][f["metric"]] += f["value"]
+    out: list[Fact] = []
+    for (ch, camp), m in agg.items():
+        dims = {"channel": ch, "campaign_id": f"{ch}:{camp}", "campaign": camp}
+        out += [fact(d, "ad_campaign", k, v, **dims) for k, v in m.items()]
+    return out

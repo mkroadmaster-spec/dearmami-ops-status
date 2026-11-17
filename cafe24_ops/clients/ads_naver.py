@@ -95,13 +95,27 @@ class NaverSAClient:
             out.extend(data.get("data", []))
         return out
 
+    def _campaign_day(self, d: str) -> list[dict[str, Any]]:
+        """캠페인 단위 하루 성과 원본 — 채널 합계(ads)와 캠페인별(ad_campaign) 수집이 같이 쓰므로 날짜별로 1회만 호출."""
+        return self._cached(f"campday:{d}", lambda: tuple(self.stats([c["nccCampaignId"] for c in self.campaigns()], d)))
+
     def daily_by_type(self, d: str) -> dict[str, dict[str, float]]:
         """{'naver_powerlink': {...}, 'naver_place': {...}} — 캠페인 campaignTp 로 분리."""
         type_of = {c["nccCampaignId"]: c.get("campaignTp", "") for c in self.campaigns()}
         groups: dict[str, list] = {"naver_powerlink": [], "naver_place": []}
-        for row in self.stats(list(type_of), d):
+        for row in self._campaign_day(d):
             groups["naver_place" if type_of.get(row.get("id")) == "PLACE" else "naver_powerlink"].append(row)
         return {k: _agg(v) for k, v in groups.items() if v}
+
+    def campaign_stats(self, d: str) -> list[dict[str, Any]]:
+        """캠페인별 하루 성과 (광고 히스토리 '캠페인별 성과'). channel = naver_powerlink | naver_place."""
+        meta = {c["nccCampaignId"]: c for c in self.campaigns()}
+        out = []
+        for row in self._campaign_day(d):
+            c = meta.get(row.get("id"), {})
+            out.append({"campaign_id": row.get("id"), "campaign": c.get("name", ""),
+                        "channel": "naver_place" if c.get("campaignTp") == "PLACE" else "naver_powerlink", **_agg([row])})
+        return out
 
     def active_keywords(self, d: str) -> frozenset[str]:
         """d 가 속한 달에 노출이 있었던 키워드 id — 달마다 1회 (전체 키워드 수천 개를 매일 조회하면 백필이 하루 3분씩 걸림)."""

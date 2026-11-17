@@ -41,10 +41,10 @@ def run_day(store, d: str, mode: str | None = None, skip: set[str] | None = None
                     continue
                 facts = c.collect(store, d)
                 status, msg = "ok", f"{len(facts)}건"
-            if c.name == "ads":
+            if c.name in ("ads", "ad_campaign"):
                 # 광고는 채널 단위로만 지운다 — 이번에 받은 채널만 교체하고, 못 받은 채널(키 없음·ADS_ONLY 제외)은 보존.
                 # (날짜 단위로 지웠더니 채널 키가 빠진 워크플로가 돌 때 다른 채널 6일치가 사라진 적이 있다)
-                store.delete_dim_values(d, "ads", "channel", {f["dims"].get("channel") for f in facts})
+                store.delete_dim_values(d, c.name, "channel", {f["dims"].get("channel") for f in facts})
             else:
                 for src in c.all_sources():
                     store.delete_facts(d, src)

@@ -281,15 +281,18 @@
     <div class="sub-nav"><span class="lab note">채널</span><button class="pill on" data-h="meta">Meta 소재</button><button class="pill" data-h="google">구글 소재</button><button class="pill" data-h="kakao">카카오 소재</button><button class="pill" data-h="naver_powerlink">네이버 검색(키워드)</button><button class="pill" data-h="naver_place">네이버 플레이스</button></div>
     <div id="hist-meta">
       <div class="cards" id="crCards"></div>
+      <div class="panel campBox" style="margin-bottom:12px"></div>
       <div class="grid" style="margin-bottom:12px"><div class="panel"><h3>소재별 CTR 추이 <span class="note">광고비 상위 5 · CTR 하락 + 빈도 상승 = 피로도</span></h3><div class="legend" id="lgCr"></div><div class="chart sm"><canvas id="chCr"></canvas></div></div></div>
       <div class="sub-nav"><b id="crCount">소재별 성과</b><span class="lab note" style="margin-left:auto">정렬</span><button class="pill on" data-cs="ad_conversions">전환(결과)</button><button class="pill" data-cs="ctr">CTR</button><button class="pill" data-cs="cvr">CVR</button><button class="pill" data-cs="ad_cost">비용</button></div>
       <div class="creatives" id="creatives"></div>
     </div>
     <div id="hist-naver_powerlink" class="hidden">
       <div class="cards" id="kwCards"></div>
+      <div class="panel campBox" style="margin-bottom:12px"></div>
       <div class="panel"><h3 id="kwTitle">네이버 파워링크 · 키워드 리포트</h3><div class="sub-nav"><span class="lab note">정렬</span><button class="pill on" data-ks="ad_cost">광고비</button><button class="pill" data-ks="ad_clicks">클릭</button><button class="pill" data-ks="ad_impressions">노출</button><button class="pill" data-ks="ad_conversions">전환</button></div><table id="tblKw"></table></div>
     </div>
     <div id="hist-naver_place" class="hidden">
+      <div class="panel campBox" style="margin-bottom:12px"></div>
       <div class="panel"><h3>네이버 플레이스 · 광고그룹</h3><div class="sub">광고그룹 단위 성과</div><table id="tblPlace"></table></div>
     </div>
   </section>
@@ -388,6 +391,7 @@ function snapGet(path) {
   if (p === '/api/report/monthly') { const k = u.searchParams.get('month'); return (k && SNAP.reports_monthly && SNAP.reports_monthly[k]) || SNAP.report_monthly; }
   if (fixed[p]) return SNAP[fixed[p]];
   const R = SNAP.ranges[`${PRESET === 'custom' ? '7' : PRESET}|${CMP}`] || SNAP.ranges['7|prev'];
+  if (p === '/api/ads/campaigns') return (R.campaigns || {})[u.searchParams.get('channel')] || { rows: [], approx: false };
   if (p === '/api/ads/keywords') return u.searchParams.get('channel') === 'naver_place' ? R.place : R.keywords;
   const crPre = { google: 'g_', kakao: 'k_' }[u.searchParams.get('channel')];
   if (crPre && p === '/api/creatives/overview') return R[crPre + 'creatives'] || { rows: [], kpi: {} };
@@ -673,7 +677,28 @@ function setHist(h) {
   ['naver_powerlink', 'naver_place'].forEach(x => $('#hist-' + x).classList.toggle('hidden', x !== h));
 }
 let HIST_AUTO = true;  // 첫 로드에 Meta 소재가 없으면 소재가 있는 채널(구글 → 카카오)을 먼저 보여준다
-$$('[data-h]').forEach(b => b.onclick = () => { HIST_AUTO = false; setHist(b.dataset.h); if (CR_CHANNELS.includes(HIST)) loadCreatives().catch(e => showErr(e.message)); });
+$$('[data-h]').forEach(b => b.onclick = () => { HIST_AUTO = false; setHist(b.dataset.h); loadCampaigns().catch(e => showErr(e.message)); if (CR_CHANNELS.includes(HIST)) loadCreatives().catch(e => showErr(e.message)); });
+// 캠페인별 성과 — 채널 버튼마다 KPI 카드 바로 아래. 정렬은 화면에서.
+let CAMP = null, CAMPSORT = { key: 'ad_cost', dir: -1 };
+const CAMP_KEYS = [['ad_cost', '광고비'], ['ad_revenue', '광고매출'], ['roas', 'ROAS'], ['ad_conversions', '전환'], ['ad_clicks', '클릭'], ['ctr', 'CTR'], ['cpa', '전환당 비용']];
+async function loadCampaigns() { CAMP = await api(`/api/ads/campaigns?${q()}&channel=${HIST}`); CAMP.for = HIST; renderCampaigns(); }
+function renderCampaigns() {
+  const box = $(`#hist-${CR_CHANNELS.includes(HIST) ? 'meta' : HIST} .campBox`); if (!box || !CAMP || CAMP.for !== HIST) return;
+  const NAME = { meta: 'Meta', google: 'Google', kakao: '카카오', naver_powerlink: '네이버 파워링크', naver_place: '네이버 플레이스' }[HIST];
+  const rows = [...(CAMP.rows || [])].sort((a, b) => { const x = a[CAMPSORT.key], y = b[CAMPSORT.key]; if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x - y) * CAMPSORT.dir; });
+  const T = rows.reduce((a, r) => { ['ad_cost', 'ad_revenue', 'ad_impressions', 'ad_clicks', 'ad_conversions'].forEach(k => a[k] = (a[k] || 0) + (r[k] || 0)); return a; }, {});
+  const pv = (prevTxt, d) => `<div class="pv">비교 ${prevTxt}${d ? ' · ' + d : ''}</div>`;
+  $$('.campBox').forEach(b => { if (b !== box) b.innerHTML = ''; });   // 표 id 가 하나만 남도록 다른 채널 칸은 비운다
+  box.innerHTML = `<h3>${NAME} · 캠페인별 성과 (${rows.length})</h3>
+    <div class="sub">선택 기간 합계 · 숫자 아래 = 비교기간 값과 증감 · 막대 = 광고비 비중${CAMP.approx ? ' · <span class="tag warn">소재·키워드 합산 기준(일부 누락 가능) — 캠페인 단위 수집 전</span>' : ''}</div>
+    <div class="sub-nav"><span class="lab note">정렬</span>${CAMP_KEYS.map(([k, l]) => `<button class="pill${CAMPSORT.key === k ? ' on' : ''}" data-cps="${k}">${l}${CAMPSORT.key === k ? (CAMPSORT.dir < 0 ? ' ▼' : ' ▲') : ''}</button>`).join('')}</div><table id="tblCamp"></table>`;
+  box.querySelectorAll('[data-cps]').forEach(b => b.onclick = () => { CAMPSORT = { key: b.dataset.cps, dir: CAMPSORT.key === b.dataset.cps ? -CAMPSORT.dir : -1 }; renderCampaigns(); });
+  tbl('tblCamp', ['캠페인', '광고비', '노출', '클릭', 'CTR', 'CPC', '전환', '전환율', '전환당 비용', '광고매출', 'ROAS'],
+    rows.map(r => { const p = r.prev, c = r.pct || {}; return `<tr><td class="name">${esc(r.campaign)}${p ? '' : '<span class="tag good">신규</span>'}<div style="height:4px;border-radius:2px;background:var(--s1);opacity:.5;width:${Math.max(1, r.share).toFixed(0)}%"></div></td>
+      <td>${fmt.krw(r.ad_cost)}${p ? pv(fmt.krw(p.ad_cost), dspan('ad_cost', c.ad_cost)) : ''}</td><td>${fmt.count(r.ad_impressions)}</td><td>${fmt.count(r.ad_clicks)}${p ? pv(fmt.count(p.ad_clicks), dspan('x', c.ad_clicks)) : ''}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.krw(r.cpc)}</td>
+      <td>${fmt.num(r.ad_conversions)}${p ? pv(fmt.num(p.ad_conversions), dspan('x', c.ad_conversions)) : ''}</td><td>${fmt.pct(r.cvr)}</td><td>${fmt.krw(r.cpa)}</td><td>${fmt.krw(r.ad_revenue)}${p ? pv(fmt.krw(p.ad_revenue), dspan('x', c.ad_revenue)) : ''}</td><td>${fmt.x(r.roas)}${p ? pv(fmt.x(p.roas), dspan('x', c.roas)) : ''}</td></tr>`; })
+    .concat(rows.length ? [`<tr><td><b>합계</b></td><td><b>${fmt.krw(T.ad_cost)}</b></td><td><b>${fmt.count(T.ad_impressions)}</b></td><td><b>${fmt.count(T.ad_clicks)}</b></td><td><b>${fmt.pct(T.ad_impressions ? T.ad_clicks / T.ad_impressions * 100 : null)}</b></td><td><b>${fmt.krw(T.ad_clicks ? T.ad_cost / T.ad_clicks : null)}</b></td><td><b>${fmt.num(T.ad_conversions)}</b></td><td><b>${fmt.pct(T.ad_clicks ? T.ad_conversions / T.ad_clicks * 100 : null)}</b></td><td><b>${fmt.krw(T.ad_conversions ? T.ad_cost / T.ad_conversions : null)}</b></td><td><b>${fmt.krw(T.ad_revenue)}</b></td><td><b>${fmt.x(T.ad_cost ? T.ad_revenue / T.ad_cost * 100 : null)}</b></td></tr>`] : []), `${NAME} 캠페인 데이터 없음 — 미연결이거나 이 기간에 집행 없음`);
+}
 $$('[data-cs]').forEach(b => b.onclick = () => { CRSORT = b.dataset.cs; $$('[data-cs]').forEach(x => x.classList.toggle('on', x === b)); renderCreatives(); });
 $$('[data-ks]').forEach(b => b.onclick = () => { KWSORT = b.dataset.ks; $$('[data-ks]').forEach(x => x.classList.toggle('on', x === b)); loadKeywords().catch(e => showErr(e.message)); });
 let CR = { rows: [] };
@@ -683,7 +708,7 @@ async function loadHistory() {
     const first = CR_CHANNELS.find((c, i) => (all[i].rows || []).length);
     if (first && HIST === 'meta' && first !== 'meta') setHist(first);
   }
-  await loadCreatives(); await loadKeywords();
+  await loadCreatives(); await loadKeywords(); await loadCampaigns();
 }
 async function loadCreatives() {
   const ch = CR_CHANNELS.includes(HIST) ? HIST : 'meta';

@@ -20,6 +20,7 @@ TOP = 40  # 하루 소재 상한 (DB 무료 한도)
 KV_META = "kakao_creative_meta"
 KV_SCHED = "kakao_adgroup_sched"
 _cache: dict[str, list[dict]] = {}
+_camp_cache: dict[str, list[dict]] = {}   # 날짜 → 캠페인별 성과 (ad_campaign 수집기용)
 _camps: list[dict] | None = None
 _groups: dict[str, dict] | None = None  # adgroup_id → {campaign, name, begin, end}
 _crs: dict[str, list[dict]] = {}        # adgroup_id → [{id, name}]
@@ -55,7 +56,7 @@ def _log(t0: float, msg: str) -> None:
     print(f"[kakao_creative] {time.time() - t0:5.0f}s {msg}", flush=True)
 
 
-def _load(store, k: "ads_kakao.KakaoMomentClient", d: str) -> None:
+def _load(store, k: "ads_kakao.KakaoMomentClient", d: str, creatives: bool = True) -> None:
     global _camps
     import time
     t0 = time.time()
@@ -78,6 +79,17 @@ def _load(store, k: "ads_kakao.KakaoMomentClient", d: str) -> None:
     else:
         active = set(cand_camps) if crow else set()
     _log(t0, f"캠페인 리포트 {len(crow)}행 → 집행 캠페인 {len(active)}개")
+    day0 = _date.fromisoformat(s)
+    while day0 <= end:  # 캠페인별 성과(ad_campaign 수집기)가 같은 리포트를 다시 부르지 않도록 날짜별로 보관
+        _camp_cache[day0.isoformat()] = []
+        day0 += timedelta(days=1)
+    for r in crow:
+        cid = (r.get("dimensions") or {}).get("campaign_id")
+        m = ads_kakao.metrics_of(r.get("metrics") or {})
+        if cid and m["impressions"] > 0 and r.get("start") in _camp_cache:
+            _camp_cache[r["start"]].append({"campaign_id": str(cid), "campaign": names.get(int(cid), ""), **m})
+    if not creatives:  # 캠페인별 성과만 필요할 때 (소재 리포트는 호출 제한 때문에 훨씬 오래 걸린다)
+        return
     info: dict[str, dict] = {}
     for gid, g in cand.items():
         if g["campaign"] not in active:
@@ -107,6 +119,13 @@ def _load(store, k: "ads_kakao.KakaoMomentClient", d: str) -> None:
         _cache.setdefault(r["start"], []).append({"ad_id": crid, **info.get(crid, {}), **meta[crid], **m})
     if changed:
         store.kv_set(KV_META, json.dumps(meta, ensure_ascii=False))
+
+
+def campaign_rows(store, d: str) -> list[dict]:
+    """그 날짜의 캠페인별 성과. 소재 수집이 먼저 돌았으면 보관분을 쓰고, 아니면 31일 구간을 불러온다."""
+    if d not in _camp_cache:
+        _load(store, ads_kakao.KakaoMomentClient(store), d, creatives=False)
+    return _camp_cache.get(d, [])
 
 
 def collect(store, d: str) -> list[Fact]:

@@ -99,6 +99,7 @@ def build_snapshot() -> dict:
             "g_creatives": get(f"/api/creatives/overview?{q}&channel=google"), "g_creative_trend": get(f"/api/creatives/trend?{q}&channel=google"),
             "k_creatives": get(f"/api/creatives/overview?{q}&channel=kakao"), "k_creative_trend": get(f"/api/creatives/trend?{q}&channel=kakao"),
             "ga4": get(f"/api/ga4/site?{q}"), "competitors": get(f"/api/competitors/trend?{q}"),
+            "campaigns": {ch: get(f"/api/ads/campaigns?{q}&channel={ch}") for ch in ("meta", "google", "kakao", "naver_powerlink", "naver_place")},
         }
     return snap
 

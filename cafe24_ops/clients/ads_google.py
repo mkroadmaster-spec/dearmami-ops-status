@@ -129,6 +129,14 @@ class GoogleAdsClient:
                 "clicks": float(m.get("clicks", 0)), "conversions": float(m.get("conversions", 0)),
                 "ad_revenue": float(m.get("conversionsValue", 0))}
 
+    def campaign_rows(self, start: str, end: str) -> list[dict[str, Any]]:
+        """기간 내 일자별 캠페인 성과 (모든 캠페인 유형 포함). 노출 0 제외."""
+        q = (f"SELECT segments.date, campaign.id, campaign.name, campaign.advertising_channel_type, {self._MET} "
+             f"FROM campaign WHERE segments.date BETWEEN '{start}' AND '{end}' AND metrics.impressions > 0")
+        return [{"date": r["segments"]["date"], "campaign_id": str(r.get("campaign", {}).get("id", "")),
+                 "campaign": r.get("campaign", {}).get("name", ""), "campaign_type": r.get("campaign", {}).get("advertisingChannelType", ""),
+                 **self._m(r)} for r in self.search(q)]
+
     def creative_rows(self, start: str, end: str) -> list[dict[str, Any]]:
         """기간 내 일자별 소재 성과 — 일반 광고(ad_group_ad) + 실적 최대화 애셋그룹(asset_group). 노출 0 제외."""
         out: list[dict[str, Any]] = []
