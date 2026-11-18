@@ -137,3 +137,13 @@ def test_ads_delete_is_channel_scoped(tmp_path):
     assert got == {"google": 10, "kakao": 20, "naver_powerlink": 33}
     m = mask_secrets('Auth failed with api-key: 010000000075d0e9d2772231c22a93c0d8bfea1c682ab657a5c8f6dbec9d94, customer-id: 2069741')
     assert "0100000000" not in m and "2069741" not in m
+
+
+def test_criteo_report_is_semicolon_csv_with_bom():
+    """크리테오 실제 응답: BOM + 세미콜론 구분. 쉼표로 읽으면 전부 0 이 된다 (실제로 겪음)."""
+    from cafe24_ops.clients import ads_criteo as ac
+    raw = ("﻿Day;Currency;Displays;Clicks;AdvertiserCost;SalesAllPc30d;RevenueGeneratedAllPc30d\r\n"
+           "2026-11-11;KRW;1200;34;15000.5;2;88000\r\n").encode("utf-8")
+    rows = ac.parse_report(raw)
+    assert rows[0]["Day"] == "2026-11-11" and ac._num(rows[0]["AdvertiserCost"]) == 15000.5
+    assert ac._day("11/12/2026") == "2026-11-12" and ac._day("2026-11-11T00:00:00") == "2026-11-11"

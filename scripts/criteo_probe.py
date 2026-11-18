@@ -55,22 +55,17 @@ for ver in ac.VERSIONS:
     print(f"report [{ver}] status {r.status_code} · content-type {r.headers.get('content-type')}")
     if r.status_code >= 400:
         print("  ", r.text[:500]); break
-    text = r.text.lstrip("﻿")
-    first = text.split("\n", 1)[0]
-    print("  첫 줄(열 이름):", first[:300])
-    for delim in (",", ";", "\t"):
-        rows = list(csv.DictReader(io.StringIO(text), delimiter=delim))
-        if rows and len(rows[0]) > 1:
-            print(f"  구분자 {delim!r} · 행 {len(rows)} · 열 {list(rows[0].keys())}")
-            for k in ("Displays", "Clicks", "AdvertiserCost", "SalesAllPc30d", "RevenueGeneratedAllPc30d"):
-                vals = [x.get(k) for x in rows]
-                print(f"    {k:<26} 있음={sum(1 for v in vals if v not in (None, '', '0', '0.0'))}/{len(rows)}  예시 형식={'숫자' if vals and str(vals[0]).replace('.', '', 1).replace('-', '', 1).isdigit() else repr(str(vals[0])[:1]) + '…'}")
-            print("  날짜 열 예시:", {k: rows[0][k] for k in rows[0] if k.lower() in ('day', 'date')})
-            break
+    rows = ac.parse_report(r.content)
+    print("  행", len(rows), "· 열", list(rows[0].keys()) if rows else None)
+    if rows:
+        print("  날짜 표기 예시:", repr(rows[0].get("Day")), "→", ac._day(rows[0].get("Day", "")), "· 통화:", rows[0].get("Currency"))
+        for k in ("Displays", "Clicks", "AdvertiserCost", "SalesAllPc30d", "RevenueGeneratedAllPc30d"):
+            v = rows[0].get(k, "")
+            print(f"    {k:<26} 값 있음 {sum(1 for x in rows if ac._num(x.get(k)))}/{len(rows)} · 표기: 소수점={'.' in v} 쉼표={',' in v} 길이={len(v)}")
     break
 # 수집기와 같은 방식으로 하루치 (값 유무만)
 try:
-    rep = c.daily(d)
-    print(f"✅ daily({d}) 성공:", {k: ("있음" if v else "0") for k, v in rep.items()})
+    rep = c.daily(start)
+    print(f"✅ 수집기 방식 daily({start}) :", {k: ("있음" if v else "0") for k, v in rep.items()}, "· 기억한 날짜 수", len(next(iter(ac._DAYS.values()))))
 except Exception as e:  # noqa: BLE001
     print("❌ daily 실패:", str(e)[:400])
