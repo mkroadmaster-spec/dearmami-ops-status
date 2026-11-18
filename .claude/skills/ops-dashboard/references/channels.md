@@ -62,7 +62,10 @@
 5. **Create new consent URL** → 그 링크를 열어 **Portfolio access** 에서 광고주를 체크 → 승인.
    - 여기서 광고주가 **`(Not Authorized)` 회색**으로 나오면 로그인한 계정에 그 광고 계정의 관리자 권한이 없는 것이다. 이대로 Ok 를 누르면 광고주 없이 승인돼 데이터를 못 받는다. → 계정 권한을 Admin 으로 올려 달라고 하거나, 동의 링크를 관리자(대행사·크리테오 담당자)에게 보내 대신 승인받는다.
 6. Secrets: `CRITEO_CLIENT_ID`, `CRITEO_CLIENT_SECRET` (광고주 ID 는 선택 — 비우면 접근 가능한 광고주 전체 합산).
-7. 확인: `channel-check.yml` 에 `channels=criteo`. 처음 연결할 때 응답 필드를 한 번 검증한다(`clients/ads_criteo.py` 는 문서 기준으로 작성됐다).
+7. 확인: `probe.yml` 에 `script=criteo_probe` — DB 없이 토큰 발급 · 승인된 광고주 · 리포트 응답 모양을 본다. (`channel-check.yml` 은 DB 접속이 필요하다.)
+- **리포트 응답은 BOM 이 붙은 세미콜론(;) 구분 CSV 다.** 문서 예시처럼 쉼표로 읽으면 오류 없이 전부 0 이 된다(실제로 겪음). `parse_report()` 가 BOM 을 떼고 구분자를 판별한다. 날짜는 `YYYY-MM-DD`, 금액은 소수점 표기.
+- 하루씩 부르지 않고 60일 구간을 한 번에 받아 실행 중 기억한다(`daily()` → `range_by_day()`).
+- 권한을 새로 받은 뒤에는 **동의 링크를 새로 만들어** 다시 승인한다. 승인 여부는 동의 화면(consent.criteo.com)의 앱 칸에 광고주가 `Authorized` 로 나오는지, 또는 `criteo_probe` 의 "승인된 광고주 수"로 확인한다.
 - 관리자 승인을 못 받으면 CSV 업로드로 대체한다.
 
 ### 네이버 GFA · 모비온 (CSV)
